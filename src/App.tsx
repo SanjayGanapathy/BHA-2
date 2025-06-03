@@ -33,7 +33,7 @@ function LandingRoute({ children }: { children: React.ReactNode }) {
 
   // If user is logged in, redirect to dashboard
   if (currentUser) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
@@ -68,19 +68,19 @@ function App() {
         >
           <Routes>
             {/* Public Routes */}
+            <Route path="/login" element={<Login />} />
             <Route
-              path="/"
+              path="/landing"
               element={
                 <LandingRoute>
                   <Landing />
                 </LandingRoute>
               }
             />
-            <Route path="/login" element={<Login />} />
 
             {/* Protected Routes */}
             <Route
-              path="/dashboard"
+              path="/"
               element={
                 <ProtectedRoute>
                   <Dashboard />
