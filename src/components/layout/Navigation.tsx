@@ -8,7 +8,7 @@ import {
   Brain,
   Users,
   LogOut,
-  Store,
+  Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -16,10 +16,10 @@ import { POSStore } from "@/lib/store";
 
 const navigationItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/pos", icon: ShoppingCart, label: "Point of Sale" },
+  { to: "/pos", icon: ShoppingCart, label: "Sales Terminal" },
   { to: "/products", icon: Package, label: "Products" },
   { to: "/analytics", icon: BarChart3, label: "Analytics" },
-  { to: "/ai-insights", icon: Brain, label: "AI Insights" },
+  { to: "/ai-insights", icon: Brain, label: "Intelligence" },
   { to: "/users", icon: Users, label: "Users" },
 ];
 
@@ -41,10 +41,12 @@ export function Navigation({ className }: NavigationProps) {
       {/* Header */}
       <div className="p-6 border-b">
         <div className="flex items-center gap-2">
-          <Store className="h-8 w-8 text-primary" />
+          <Target className="h-8 w-8 text-blue-600" />
           <div>
-            <h1 className="text-xl font-bold">AI POS</h1>
-            <p className="text-sm text-muted-foreground">Smart Point of Sale</p>
+            <h1 className="text-xl font-bold text-blue-900">
+              Bull Horn Analytics
+            </h1>
+            <p className="text-sm text-blue-600">Smart Business Intelligence</p>
           </div>
         </div>
       </div>

@@ -55,7 +55,7 @@ export default function AIInsights() {
     const welcomeMessage: ChatMessage = {
       id: `msg_${Date.now()}`,
       type: "ai",
-      content: `Hello! I'm your AI business assistant. I can help you analyze your sales data, provide recommendations, and answer questions about your business performance. 
+      content: `Hello! I'm your AI business assistant. I can help you analyze your sales data, provide recommendations, and answer questions about your business performance.
 
 Here are some things you can ask me:
 • "How are my sales trending this month?"
@@ -161,9 +161,9 @@ What would you like to know?`,
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-              <Brain className="h-8 w-8 text-primary" />
-              AI Insights
+            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2 text-blue-900">
+              <Brain className="h-8 w-8 text-blue-600" />
+              Intelligence Insights
             </h1>
             <p className="text-muted-foreground">
               AI-powered analysis and recommendations for your business

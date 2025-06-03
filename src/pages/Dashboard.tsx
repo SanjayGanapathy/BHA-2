@@ -75,9 +75,11 @@ export default function Dashboard() {
       <div className="p-6 space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-blue-900">
+            Analytics Dashboard
+          </h1>
           <p className="text-muted-foreground">
-            Welcome back! Here's what's happening with your store today.
+            Welcome back! Here's what's happening with your business today.
           </p>
         </div>
 

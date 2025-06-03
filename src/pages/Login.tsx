@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Store, AlertCircle } from "lucide-react";
+import { Target, AlertCircle } from "lucide-react";
 import { POSStore } from "@/lib/store";
 
 export default function Login() {
@@ -56,17 +56,19 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="p-3 bg-primary rounded-full">
-              <Store className="h-8 w-8 text-primary-foreground" />
+            <div className="p-3 bg-blue-600 rounded-full">
+              <Target className="h-8 w-8 text-white" />
             </div>
           </div>
-          <CardTitle className="text-2xl">AI POS System</CardTitle>
+          <CardTitle className="text-2xl text-blue-900">
+            Bull Horn Analytics
+          </CardTitle>
           <CardDescription>
-            Sign in to access your smart point of sale system
+            Sign in to access your business intelligence platform
           </CardDescription>
         </CardHeader>
 

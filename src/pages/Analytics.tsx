@@ -116,9 +116,11 @@ export default function Analytics() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-blue-900">
+              Business Analytics
+            </h1>
             <p className="text-muted-foreground">
-              Detailed insights into your sales performance
+              Detailed insights into your business performance
             </p>
           </div>
 

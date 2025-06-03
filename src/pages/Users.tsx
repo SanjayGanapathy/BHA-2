@@ -182,14 +182,13 @@ export default function Users() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">
+            <h1 className="text-3xl font-bold tracking-tight text-blue-900">
               User Management
             </h1>
             <p className="text-muted-foreground">
               Manage user accounts and access permissions
             </p>
           </div>
-
           {isCurrentUserAdmin && (
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>

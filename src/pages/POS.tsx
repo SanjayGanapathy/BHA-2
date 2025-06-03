@@ -155,7 +155,9 @@ export default function POS() {
           {/* Header */}
           <div className="p-6 border-b bg-card">
             <div className="flex items-center justify-between mb-4">
-              <h1 className="text-2xl font-bold">Point of Sale</h1>
+              <h1 className="text-2xl font-bold text-blue-900">
+                Sales Terminal
+              </h1>
               <Badge variant="secondary" className="text-sm">
                 {filteredProducts.length} products
               </Badge>
