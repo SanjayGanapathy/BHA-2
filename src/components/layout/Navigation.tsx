@@ -59,9 +59,9 @@ export function Navigation({ className }: NavigationProps) {
               variant={location.pathname === item.to ? "default" : "ghost"}
               className={cn(
                 "w-full justify-start gap-3",
-                location.pathname === item.to && "bg-blue-600 text-white hover:bg-blue-700"
+                location.pathname === item.to &&
+                  "bg-blue-600 text-white hover:bg-blue-700",
               )}
-            >
             >
               <item.icon className="h-5 w-5" />
               {item.label}
