@@ -150,6 +150,12 @@ export class POSStore {
     this.setProducts(products);
   }
 
+  static deleteProduct(productId: string) {
+    const products = this.getProducts();
+    const updatedProducts = products.filter((p) => p.id !== productId);
+    this.setProducts(updatedProducts);
+  }
+
   // Sales
   static getSales(): Sale[] {
     const data = localStorage.getItem(STORAGE_KEYS.SALES);

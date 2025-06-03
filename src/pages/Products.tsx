@@ -30,7 +30,8 @@ import {
   AlertTriangle,
   CheckCircle,
   TrendingDown,
-} from "lucide-react";
+  Trash2
+} from 'lucide-react';
 import { POSStore } from "@/lib/store";
 import { Product } from "@/types";
 import { cn } from "@/lib/utils";
@@ -40,13 +41,15 @@ export default function Products() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
-    name: "",
-    price: "",
-    cost: "",
-    category: "",
-    stock: "",
-    description: "",
+    name: '',
+    price: '',
+    cost: '',
+    category: '',
+    stock: '',
+    description: '',
   });
 
   const filteredProducts = products.filter(
@@ -111,9 +114,28 @@ export default function Products() {
       cost: product.cost.toString(),
       category: product.category,
       stock: product.stock.toString(),
-      description: product.description || "",
+      description: product.description || '',
     });
     setIsAddDialogOpen(true);
+  };
+
+  const handleDelete = (product: Product) => {
+    setDeletingProduct(product);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (deletingProduct) {
+      POSStore.deleteProduct(deletingProduct.id);
+      loadProducts();
+      setDeletingProduct(null);
+      setIsDeleteDialogOpen(false);
+    }
+  };
+
+  const cancelDelete = () => {
+    setDeletingProduct(null);
+    setIsDeleteDialogOpen(false);
   };
 
   const getStockStatus = (stock: number) => {
@@ -157,12 +179,52 @@ export default function Products() {
           </div>
 
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={resetForm} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add Product
-              </Button>
-            </DialogTrigger>
+            </Dialog>
+          )}
+
+          {/* Delete Confirmation Dialog */}
+          <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="text-red-600">Delete Product</DialogTitle>
+                <DialogDescription>
+                  Are you sure you want to delete "{deletingProduct?.name}"? This action cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+
+              {deletingProduct && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="h-5 w-5 text-red-600" />
+                    <div>
+                      <p className="font-medium text-red-800">{deletingProduct.name}</p>
+                      <p className="text-sm text-red-600">
+                        Stock: {deletingProduct.stock} units • Value: ${(deletingProduct.price * deletingProduct.stock).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  variant="destructive"
+                  onClick={confirmDelete}
+                  className="flex-1"
+                >
+                  Delete Product
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={cancelDelete}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>
@@ -435,13 +497,24 @@ export default function Products() {
                         ${(product.price * product.stock).toFixed(2)}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(product)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(product)}
+                            className="hover:bg-blue-50"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(product)}
+                            className="hover:bg-red-50 text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
