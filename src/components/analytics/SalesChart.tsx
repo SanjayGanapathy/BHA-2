@@ -49,10 +49,22 @@ export function SalesChart({
         <ResponsiveContainer width="100%" height={300}>
           <Chart data={formattedData}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-            <XAxis dataKey="date" className="text-xs fill-muted-foreground" />
+            <XAxis
+              dataKey="date"
+              className="text-xs fill-muted-foreground"
+              axisLine={true}
+              tickLine={true}
+              tick={true}
+              type="category"
+            />
             <YAxis
               className="text-xs fill-muted-foreground"
               tickFormatter={(value) => `$${value}`}
+              axisLine={true}
+              tickLine={true}
+              tick={true}
+              type="number"
+              domain={["dataMin", "dataMax"]}
             />
             <Tooltip
               formatter={(value, name) => [
