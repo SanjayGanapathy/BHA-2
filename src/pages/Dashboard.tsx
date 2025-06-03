@@ -29,7 +29,10 @@ export default function Dashboard() {
         const sales = POSStore.getSales();
         const products = POSStore.getProducts();
 
-        const analyticsData = AnalyticsEngine.calculateSalesAnalytics(sales, 'day');
+        const analyticsData = AnalyticsEngine.calculateSalesAnalytics(
+          sales,
+          "day",
+        );
         const metricsData = AnalyticsEngine.calculateBusinessMetrics();
         const insightsData = AnalyticsEngine.generateAIInsights();
 
@@ -84,19 +87,24 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <MetricsCard
             title="Total Revenue"
-            value={`$${analytics?.totalSales.toFixed(2) || '0.00'}`}
+            value={`$${analytics?.totalSales.toFixed(2) || "0.00"}`}
             description="Today"
             trend={{
               value: metrics?.growth || 0,
-              direction: (metrics?.growth || 0) > 0 ? 'up' : (metrics?.growth || 0) < 0 ? 'down' : 'neutral',
-              period: 'vs yesterday'
+              direction:
+                (metrics?.growth || 0) > 0
+                  ? "up"
+                  : (metrics?.growth || 0) < 0
+                    ? "down"
+                    : "neutral",
+              period: "vs yesterday",
             }}
             icon={<DollarSign className="h-4 w-4" />}
           />
 
           <MetricsCard
             title="Total Profit"
-            value={`$${analytics?.totalProfit.toFixed(2) || '0.00'}`}
+            value={`$${analytics?.totalProfit.toFixed(2) || "0.00"}`}
             description="Today"
             icon={<TrendingUp className="h-4 w-4" />}
           />
@@ -105,14 +113,6 @@ export default function Dashboard() {
             title="Transactions"
             value={analytics?.totalTransactions || 0}
             description="Today"
-            icon={<ShoppingCart className="h-4 w-4" />}
-          />
-          />
-
-          <MetricsCard
-            title="Transactions"
-            value={analytics?.totalTransactions || 0}
-            description="Last 30 days"
             icon={<ShoppingCart className="h-4 w-4" />}
           />
 
@@ -129,7 +129,7 @@ export default function Dashboard() {
           {/* Sales Chart */}
           <SalesChart
             data={analytics?.dailySales || []}
-            title="Sales Trend"
+            title="Today's Sales Trend"
             type="line"
           />
 
@@ -138,7 +138,7 @@ export default function Dashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Package className="h-5 w-5" />
-                Top Products
+                Top Products Today
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -173,7 +173,7 @@ export default function Dashboard() {
                 ))}
                 {!analytics?.topProducts.length && (
                   <p className="text-sm text-muted-foreground text-center py-4">
-                    No sales data available
+                    No sales data available for today
                   </p>
                 )}
               </div>
@@ -209,7 +209,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Quick Actions */}
+        {/* Quick Stats */}
         <Card>
           <CardHeader>
             <CardTitle>Quick Stats</CardTitle>
@@ -226,7 +226,9 @@ export default function Dashboard() {
                 <p className="text-2xl font-bold text-primary">
                   {metrics?.topSellingCategory || "N/A"}
                 </p>
-                <p className="text-sm text-muted-foreground">Top Category</p>
+                <p className="text-sm text-muted-foreground">
+                  Top Category Today
+                </p>
               </div>
               <div>
                 <p className="text-2xl font-bold text-primary">
