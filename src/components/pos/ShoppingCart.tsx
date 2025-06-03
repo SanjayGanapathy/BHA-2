@@ -143,10 +143,13 @@ export function ShoppingCart({
 
               {/* Action Buttons */}
               <div className="space-y-2 pt-2">
-                <Button onClick={onCheckout} className="w-full" size="lg">
-                  Checkout
+                <Button
+                  onClick={onCheckout}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  size="lg"
+                >
+                  Process Sale
                 </Button>
-
                 <Button
                   onClick={onClear}
                   variant="outline"

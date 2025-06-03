@@ -195,10 +195,10 @@ export default function POS() {
           {/* Products Grid */}
           <div className="flex-1 p-6 overflow-auto">
             {saleComplete && (
-              <Alert className="mb-6 bg-green-50 border-green-200">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-800">
-                  Sale completed successfully! Receipt printed.
+              <Alert className="mb-6 bg-blue-50 border-blue-200">
+                <CheckCircle className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800">
+                  Transaction completed successfully! Data recorded.
                 </AlertDescription>
               </Alert>
             )}

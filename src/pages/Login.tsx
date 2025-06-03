@@ -111,14 +111,16 @@ export default function Login() {
           </form>
 
           {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-muted rounded-lg">
-            <h4 className="text-sm font-medium mb-2">Demo Credentials:</h4>
-            <div className="text-xs space-y-1">
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="text-sm font-medium mb-2 text-blue-900">
+              Demo Credentials:
+            </h4>
+            <div className="text-xs space-y-1 text-blue-700">
               <div>
                 <strong>Admin:</strong> admin / any password
               </div>
               <div>
-                <strong>Cashier:</strong> cashier1 / any password
+                <strong>Analyst:</strong> cashier1 / any password
               </div>
               <div>
                 <strong>Manager:</strong> manager1 / any password
