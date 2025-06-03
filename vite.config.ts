@@ -24,30 +24,12 @@ export default defineConfig({
           // React dependencies
           "react-vendor": ["react", "react-dom", "react-router-dom"],
 
-          // UI components
-          'ui-vendor': [
-            '@radix-ui/react-accordion',
-            '@radix-ui/react-alert-dialog',
-            '@radix-ui/react-avatar',
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-label',
-            '@radix-ui/react-popover',
-            '@radix-ui/react-select',
-            '@radix-ui/react-separator',
-            '@radix-ui/react-slot',
-            '@radix-ui/react-switch',
-            '@radix-ui/react-tabs',
-            '@radix-ui/react-tooltip'
-          ],
-          ],
-
-          // Icons and utilities
-          "utils-vendor": [
+          // UI components (only include packages that actually exist)
+          "ui-vendor": [
             "lucide-react",
+            "class-variance-authority",
             "clsx",
             "tailwind-merge",
-            "class-variance-authority",
           ],
 
           // Forms and validation
@@ -58,13 +40,7 @@ export default defineConfig({
         },
 
         // Optimize file names for caching
-        chunkFileNames: (chunkInfo) => {
-          const facadeModuleId = chunkInfo.facadeModuleId
-            ? chunkInfo.facadeModuleId.split("/").pop()
-            : "chunk";
-          return `js/[name]-[hash].js`;
-        },
-
+        chunkFileNames: "js/[name]-[hash].js",
         entryFileNames: "js/[name]-[hash].js",
         assetFileNames: (assetInfo) => {
           if (assetInfo.name?.endsWith(".css")) {
@@ -81,7 +57,6 @@ export default defineConfig({
       compress: {
         drop_console: true, // Remove console.logs in production
         drop_debugger: true, // Remove debugger statements
-        pure_funcs: ["console.log", "console.info"], // Remove specific console methods
       },
       mangle: {
         safari10: true, // Support Safari 10
@@ -95,7 +70,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
 
     // Source maps for production debugging
-    sourcemap: false, // Set to true if you need source maps in production
+    sourcemap: false,
 
     // CSS optimization
     cssCodeSplit: true,
@@ -106,7 +81,7 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true, // Allow external connections
-    open: true, // Open browser on start
+    open: false, // Don't auto-open browser in container
   },
 
   // Preview server configuration
@@ -128,7 +103,6 @@ export default defineConfig({
       "react-dom",
       "react-router-dom",
       "lucide-react",
-      "@radix-ui/react-slot",
       "class-variance-authority",
       "clsx",
       "tailwind-merge",
@@ -138,23 +112,5 @@ export default defineConfig({
   // CSS configuration
   css: {
     devSourcemap: true,
-  },
-
-  // Public directory
-  publicDir: "public",
-
-  // Asset handling
-  assetsInclude: [
-    "**/*.svg",
-    "**/*.png",
-    "**/*.jpg",
-    "**/*.jpeg",
-    "**/*.gif",
-    "**/*.webp",
-  ],
-
-  // Worker configuration
-  worker: {
-    format: "es",
   },
 });
