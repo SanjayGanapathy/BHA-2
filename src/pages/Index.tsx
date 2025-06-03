@@ -1,39 +1,27 @@
-const Index = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
-      <div className="text-center">
-        {/* TODO: replace everything here with the actual app! */}
-        <h1 className="text-2xl font-semibold text-slate-800 flex items-center justify-center gap-3">
-          <svg
-            className="animate-spin h-8 w-8 text-slate-400"
-            viewBox="0 0 50 50"
-          >
-            <circle
-              className="opacity-30"
-              cx="25"
-              cy="25"
-              r="20"
-              stroke="currentColor"
-              strokeWidth="5"
-              fill="none"
-            />
-            <circle
-              className="text-slate-600"
-              cx="25"
-              cy="25"
-              r="20"
-              stroke="currentColor"
-              strokeWidth="5"
-              fill="none"
-              strokeDasharray="100"
-              strokeDashoffset="75"
-            />
-          </svg>
-          Generating your app...
-        </h1>
-      </div>
-    </div>
-  );
-};
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { POSStore } from "@/lib/store";
 
-export default Index;
+export default function Index() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Initialize the store
+    POSStore.initializeStore();
+
+    // Check if user is logged in
+    const currentUser = POSStore.getCurrentUser();
+
+    if (currentUser) {
+      // If logged in, redirect to dashboard (which is the same as this route in App.tsx)
+      // This component shouldn't actually be reached due to the route setup
+      navigate("/", { replace: true });
+    } else {
+      // If not logged in, redirect to login
+      navigate("/login", { replace: true });
+    }
+  }, [navigate]);
+
+  // This component renders nothing as it's just a redirect
+  return null;
+}
