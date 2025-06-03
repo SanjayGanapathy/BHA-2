@@ -92,14 +92,12 @@ export class AnalyticsEngine {
 
     // Find top selling category
     const categorySales = new Map<string, number>();
-    last30Days.forEach((sale) => {
-      sale.items.forEach((item) => {
+    today.forEach(sale => {
+      sale.items.forEach(item => {
         const category = item.product.category;
-        categorySales.set(
-          category,
-          (categorySales.get(category) || 0) + item.quantity,
-        );
+        categorySales.set(category, (categorySales.get(category) || 0) + item.quantity);
       });
+    });
     });
 
     const topSellingCategory =

@@ -29,7 +29,7 @@ export default function Dashboard() {
         const sales = POSStore.getSales();
         const products = POSStore.getProducts();
 
-        const analyticsData = AnalyticsEngine.calculateSalesAnalytics(
+        const analyticsData = AnalyticsEngine.calculateSalesAnalytics(sales, 'day');
           sales,
           "month",
         );
@@ -87,26 +87,29 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <MetricsCard
             title="Total Revenue"
-            value={`$${metrics?.revenue.toFixed(2) || "0.00"}`}
-            description="Last 30 days"
+            value={`$${analytics?.totalSales.toFixed(2) || '0.00'}`}
+            description="Today"
             trend={{
               value: metrics?.growth || 0,
-              direction:
-                (metrics?.growth || 0) > 0
-                  ? "up"
-                  : (metrics?.growth || 0) < 0
-                    ? "down"
-                    : "neutral",
-              period: "vs last month",
+              direction: (metrics?.growth || 0) > 0 ? 'up' : (metrics?.growth || 0) < 0 ? 'down' : 'neutral',
+              period: 'vs yesterday'
             }}
             icon={<DollarSign className="h-4 w-4" />}
           />
 
           <MetricsCard
             title="Total Profit"
-            value={`$${metrics?.profit.toFixed(2) || "0.00"}`}
-            description="Last 30 days"
+            value={`$${analytics?.totalProfit.toFixed(2) || '0.00'}`}
+            description="Today"
             icon={<TrendingUp className="h-4 w-4" />}
+          />
+
+          <MetricsCard
+            title="Transactions"
+            value={analytics?.totalTransactions || 0}
+            description="Today"
+            icon={<ShoppingCart className="h-4 w-4" />}
+          />
           />
 
           <MetricsCard

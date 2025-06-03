@@ -38,7 +38,7 @@ type TimeFrame = "day" | "week" | "month" | "year";
 
 export default function Analytics() {
   const [analytics, setAnalytics] = useState<SalesAnalytics | null>(null);
-  const [timeframe, setTimeframe] = useState<TimeFrame>("month");
+  const [timeframe, setTimeframe] = useState<TimeFrame>("day");
   const [sales, setSales] = useState<Sale[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
