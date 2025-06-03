@@ -77,7 +77,6 @@ export function SalesChart({
               domain={['dataMin', 'dataMax']}
               width={60}
             />
-            />
             <Tooltip
               formatter={(value, name) => [
                 `$${Number(value).toFixed(2)}`,
