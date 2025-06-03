@@ -30,10 +30,6 @@ export default function Dashboard() {
         const products = POSStore.getProducts();
 
         const analyticsData = AnalyticsEngine.calculateSalesAnalytics(sales, 'day');
-          sales,
-          "month",
-        );
-        const analyticsData = AnalyticsEngine.calculateSalesAnalytics(sales, 'day');
         const metricsData = AnalyticsEngine.calculateBusinessMetrics();
         const insightsData = AnalyticsEngine.generateAIInsights();
 
