@@ -47,24 +47,36 @@ export function SalesChart({
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
-          <Chart data={formattedData}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+          <Chart
+            data={formattedData}
+            margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              className="stroke-muted"
+              stroke="#e2e8f0"
+              strokeOpacity={0.5}
+            />
             <XAxis
               dataKey="date"
               className="text-xs fill-muted-foreground"
               axisLine={true}
               tickLine={true}
-              tick={true}
+              tick={{ fontSize: 12 }}
               type="category"
+              interval="preserveStartEnd"
+              minTickGap={5}
             />
             <YAxis
               className="text-xs fill-muted-foreground"
               tickFormatter={(value) => `$${value}`}
               axisLine={true}
               tickLine={true}
-              tick={true}
+              tick={{ fontSize: 12 }}
               type="number"
-              domain={["dataMin", "dataMax"]}
+              domain={['dataMin', 'dataMax']}
+              width={60}
+            />
             />
             <Tooltip
               formatter={(value, name) => [
@@ -80,9 +92,12 @@ export function SalesChart({
             />
             <Element
               dataKey="sales"
-              stroke="hsl(var(--primary))"
-              fill="hsl(var(--primary))"
-              strokeWidth={type === "line" ? 2 : 0}
+              stroke="hsl(214 100% 35%)"
+              fill="hsl(214 100% 35%)"
+              strokeWidth={type === 'line' ? 2 : 0}
+              dot={type === 'line' ? { fill: 'hsl(214 100% 35%)', strokeWidth: 2, r: 4 } : false}
+              animationDuration={300}
+            />
             />
           </Chart>
         </ResponsiveContainer>
