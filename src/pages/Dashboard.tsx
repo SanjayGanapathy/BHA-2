@@ -33,6 +33,7 @@ export default function Dashboard() {
           sales,
           "month",
         );
+        const analyticsData = AnalyticsEngine.calculateSalesAnalytics(sales, 'day');
         const metricsData = AnalyticsEngine.calculateBusinessMetrics();
         const insightsData = AnalyticsEngine.generateAIInsights();
 

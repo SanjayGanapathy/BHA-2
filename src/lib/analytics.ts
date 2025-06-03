@@ -10,7 +10,7 @@ import { POSStore } from "./store";
 export class AnalyticsEngine {
   static calculateSalesAnalytics(
     sales: Sale[],
-    timeframe: "day" | "week" | "month" | "year" = "month",
+    timeframe: "day" | "week" | "month" | "year" = "day",
   ): SalesAnalytics {
     const now = new Date();
     const filteredSales = this.filterSalesByTimeframe(sales, timeframe, now);
@@ -68,18 +68,15 @@ export class AnalyticsEngine {
     const sales = POSStore.getSales();
     const products = POSStore.getProducts();
 
-    const last30Days = this.filterSalesByTimeframe(sales, "month", new Date());
-    const previous30Days = this.filterSalesByTimeframe(
+    const today = this.filterSalesByTimeframe(sales, "day", new Date());
+    const yesterday = this.filterSalesByTimeframe(
       sales,
-      "month",
-      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+      "day",
+      new Date(Date.now() - 24 * 60 * 60 * 1000),
     );
 
-    const currentRevenue = last30Days.reduce(
-      (sum, sale) => sum + sale.total,
-      0,
-    );
-    const previousRevenue = previous30Days.reduce(
+    const currentRevenue = today.reduce((sum, sale) => sum + sale.total, 0);
+    const previousRevenue = yesterday.reduce(
       (sum, sale) => sum + sale.total,
       0,
     );
@@ -88,16 +85,18 @@ export class AnalyticsEngine {
         ? ((currentRevenue - previousRevenue) / previousRevenue) * 100
         : 0;
 
-    const profit = last30Days.reduce((sum, sale) => sum + sale.profit, 0);
+    const profit = today.reduce((sum, sale) => sum + sale.profit, 0);
 
-    // Find top selling category
+    // Find top selling category for today
     const categorySales = new Map<string, number>();
-    today.forEach(sale => {
-      sale.items.forEach(item => {
+    today.forEach((sale) => {
+      sale.items.forEach((item) => {
         const category = item.product.category;
-        categorySales.set(category, (categorySales.get(category) || 0) + item.quantity);
+        categorySales.set(
+          category,
+          (categorySales.get(category) || 0) + item.quantity,
+        );
       });
-    });
     });
 
     const topSellingCategory =
@@ -143,7 +142,7 @@ export class AnalyticsEngine {
         id: `growth-${Date.now()}`,
         type: "observation",
         title: "Strong Growth Detected",
-        description: `Sales have grown by ${metrics.growth.toFixed(1)}% compared to last month. Great job!`,
+        description: `Sales have grown by ${metrics.growth.toFixed(1)}% compared to yesterday. Great job!`,
         impact: "high",
         timestamp: new Date(),
       });
@@ -152,7 +151,19 @@ export class AnalyticsEngine {
         id: `decline-${Date.now()}`,
         type: "recommendation",
         title: "Sales Decline Noticed",
-        description: `Sales have declined by ${Math.abs(metrics.growth).toFixed(1)}%. Consider promotional campaigns or product mix adjustments.`,
+        description: `Sales have declined by ${Math.abs(metrics.growth).toFixed(1)}% compared to yesterday. Consider promotional campaigns or product mix adjustments.`,
+        impact: "medium",
+        timestamp: new Date(),
+      });
+    }
+
+    // Daily performance insights
+    if (metrics.revenue > 0) {
+      insights.push({
+        id: `daily-performance-${Date.now()}`,
+        type: "observation",
+        title: "Today's Performance",
+        description: `Today's revenue is $${metrics.revenue.toFixed(2)} with ${metrics.topSellingCategory} being the top category.`,
         impact: "medium",
         timestamp: new Date(),
       });
@@ -163,7 +174,7 @@ export class AnalyticsEngine {
       id: `forecast-${Date.now()}`,
       type: "forecast",
       title: "Sales Forecast",
-      description: `Based on current trends, next month's revenue is projected to be $${metrics.forecast.nextMonth.toFixed(2)} with ${metrics.forecast.confidence}% confidence.`,
+      description: `Based on current trends, tomorrow's revenue is projected to be $${metrics.forecast.nextWeek.toFixed(2)} with ${metrics.forecast.confidence}% confidence.`,
       impact: "medium",
       timestamp: new Date(),
       data: metrics.forecast,
@@ -181,8 +192,14 @@ export class AnalyticsEngine {
 
     switch (timeframe) {
       case "day":
+        // For today, filter sales from start of today
         cutoffDate.setHours(0, 0, 0, 0);
-        break;
+        const endOfDay = new Date(referenceDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        return sales.filter((sale) => {
+          const saleDate = new Date(sale.timestamp);
+          return saleDate >= cutoffDate && saleDate <= endOfDay;
+        });
       case "week":
         cutoffDate.setDate(cutoffDate.getDate() - 7);
         break;
@@ -204,7 +221,18 @@ export class AnalyticsEngine {
     >();
 
     sales.forEach((sale) => {
-      const dateKey = new Date(sale.timestamp).toISOString().split("T")[0];
+      let dateKey: string;
+
+      if (timeframe === "day") {
+        // For day view, show hourly breakdown
+        const saleDate = new Date(sale.timestamp);
+        const hour = saleDate.getHours();
+        dateKey = `${hour.toString().padStart(2, "0")}:00`;
+      } else {
+        // For other timeframes, show daily breakdown
+        dateKey = new Date(sale.timestamp).toISOString().split("T")[0];
+      }
+
       const existing = dailySales.get(dateKey);
       if (existing) {
         existing.sales += sale.total;
@@ -216,20 +244,28 @@ export class AnalyticsEngine {
 
     return Array.from(dailySales.entries())
       .map(([date, data]) => ({ date, ...data }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+      .sort((a, b) => {
+        if (timeframe === "day") {
+          // Sort by hour for day view
+          const hourA = parseInt(a.date.split(":")[0]);
+          const hourB = parseInt(b.date.split(":")[0]);
+          return hourA - hourB;
+        }
+        return a.date.localeCompare(b.date);
+      });
   }
 
   private static generateForecast(sales: Sale[]) {
-    const last30Days = this.filterSalesByTimeframe(sales, "month", new Date());
+    const last7Days = this.filterSalesByTimeframe(sales, "week", new Date());
     const dailyAverage =
-      last30Days.length > 0
-        ? last30Days.reduce((sum, sale) => sum + sale.total, 0) / 30
+      last7Days.length > 0
+        ? last7Days.reduce((sum, sale) => sum + sale.total, 0) / 7
         : 0;
 
     return {
       nextWeek: dailyAverage * 7,
       nextMonth: dailyAverage * 30,
-      confidence: Math.min(90, Math.max(60, last30Days.length * 3)), // Simple confidence based on data points
+      confidence: Math.min(90, Math.max(60, last7Days.length * 12)), // Simple confidence based on data points
     };
   }
 }
