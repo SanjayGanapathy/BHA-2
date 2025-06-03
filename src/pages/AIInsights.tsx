@@ -163,7 +163,7 @@ What would you like to know?`,
           <div>
             <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2 text-blue-900">
               <Brain className="h-8 w-8 text-blue-600" />
-              Intelligence Insights
+              Bull's Eye Intelligence
             </h1>
             <p className="text-muted-foreground">
               AI-powered analysis and recommendations for your business

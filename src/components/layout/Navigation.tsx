@@ -19,7 +19,7 @@ const navigationItems = [
   { to: "/pos", icon: ShoppingCart, label: "Sales Terminal" },
   { to: "/products", icon: Package, label: "Products" },
   { to: "/analytics", icon: BarChart3, label: "Analytics" },
-  { to: "/ai-insights", icon: Brain, label: "Intelligence" },
+  { to: "/ai-insights", icon: Brain, label: "Bull's Eye" },
   { to: "/users", icon: Users, label: "Users" },
 ];
 
