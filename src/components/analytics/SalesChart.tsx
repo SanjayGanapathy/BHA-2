@@ -74,7 +74,7 @@ export function SalesChart({
               tickLine={true}
               tick={{ fontSize: 12 }}
               type="number"
-              domain={['dataMin', 'dataMax']}
+              domain={["dataMin", "dataMax"]}
               width={60}
             />
             <Tooltip
@@ -93,10 +93,13 @@ export function SalesChart({
               dataKey="sales"
               stroke="hsl(214 100% 35%)"
               fill="hsl(214 100% 35%)"
-              strokeWidth={type === 'line' ? 2 : 0}
-              dot={type === 'line' ? { fill: 'hsl(214 100% 35%)', strokeWidth: 2, r: 4 } : false}
+              strokeWidth={type === "line" ? 2 : 0}
+              dot={
+                type === "line"
+                  ? { fill: "hsl(214 100% 35%)", strokeWidth: 2, r: 4 }
+                  : false
+              }
               animationDuration={300}
-            />
             />
           </Chart>
         </ResponsiveContainer>
