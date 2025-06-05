@@ -1,5 +1,5 @@
-import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import React, { useMemo } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -12,15 +12,42 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { POSStore } from "@/lib/store";
+import { getCurrentUser, apiLogout } from "@/lib/api";
+import { User } from "@/types";
 
-const navigationItems = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/pos", icon: ShoppingCart, label: "Sales Terminal" },
-  { to: "/products", icon: Package, label: "Products" },
-  { to: "/analytics", icon: BarChart3, label: "Analytics" },
-  { to: "/ai-insights", icon: Brain, label: "Bull's Eye" },
-  { to: "/users", icon: Users, label: "Users" },
+// Define all possible navigation items with required roles
+const allNavigationItems = [
+  {
+    to: "/",
+    icon: LayoutDashboard,
+    label: "Dashboard",
+    roles: ["admin", "manager", "cashier"],
+  },
+  {
+    to: "/pos",
+    icon: ShoppingCart,
+    label: "Sales Terminal",
+    roles: ["admin", "manager", "cashier"],
+  },
+  {
+    to: "/products",
+    icon: Package,
+    label: "Products",
+    roles: ["admin", "manager"],
+  },
+  {
+    to: "/analytics",
+    icon: BarChart3,
+    label: "Analytics",
+    roles: ["admin", "manager"],
+  },
+  {
+    to: "/ai-insights",
+    icon: Brain,
+    label: "Bull's Eye",
+    roles: ["admin", "manager"],
+  },
+  { to: "/users", icon: Users, label: "Users", roles: ["admin"] },
 ];
 
 interface NavigationProps {
@@ -29,12 +56,28 @@ interface NavigationProps {
 
 export function Navigation({ className }: NavigationProps) {
   const location = useLocation();
-  const currentUser = POSStore.getCurrentUser();
+  const navigate = useNavigate();
+  const currentUser = getCurrentUser();
 
-  const handleLogout = () => {
-    POSStore.logout();
-    window.location.href = "/login";
+  // Filter navigation items based on the current user's role
+  const accessibleNavItems = useMemo(() => {
+    if (!currentUser) return [];
+    return allNavigationItems.filter((item) =>
+      item.roles.includes(currentUser.role),
+    );
+  }, [currentUser]);
+
+  const handleLogout = async () => {
+    await apiLogout();
+    // Use navigate for a smooth client-side transition without a page reload
+    navigate("/login", { replace: true });
   };
+
+  if (!currentUser) {
+    // Render nothing or a loading state if there's no user
+    // This case should ideally not be hit due to the ProtectedRoute wrapper
+    return null;
+  }
 
   return (
     <nav className={cn("flex flex-col h-full bg-card border-r", className)}>
@@ -53,7 +96,7 @@ export function Navigation({ className }: NavigationProps) {
 
       {/* Navigation Items */}
       <div className="flex-1 p-4 space-y-2">
-        {navigationItems.map((item) => (
+        {accessibleNavItems.map((item) => (
           <Link key={item.to} to={item.to}>
             <Button
               variant={location.pathname === item.to ? "default" : "ghost"}
@@ -72,14 +115,12 @@ export function Navigation({ className }: NavigationProps) {
 
       {/* User Info & Logout */}
       <div className="p-4 border-t">
-        {currentUser && (
-          <div className="mb-4">
-            <p className="text-sm font-medium">{currentUser.name}</p>
-            <p className="text-xs text-muted-foreground capitalize">
-              {currentUser.role}
-            </p>
-          </div>
-        )}
+        <div className="mb-4">
+          <p className="text-sm font-medium">{currentUser.name}</p>
+          <p className="text-xs text-muted-foreground capitalize">
+            {currentUser.role}
+          </p>
+        </div>
         <Button
           variant="outline"
           onClick={handleLogout}

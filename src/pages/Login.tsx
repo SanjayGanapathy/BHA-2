@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Target, AlertCircle } from "lucide-react";
 import { POSStore } from "@/lib/store";
+import { apiLogin, getCurrentUser } from "@/lib/api";
 
 export default function Login() {
   const [username, setUsername] = useState("");
