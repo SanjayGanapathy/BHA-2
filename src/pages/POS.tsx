@@ -6,6 +6,8 @@ import { ShoppingCart } from "@/components/pos/ShoppingCart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useLocalStorageState } from "@/hooks/useLocalStorageState";
+import { CartItem } from "@/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Search, Filter, CheckCircle } from "lucide-react";
 import { fetchProducts, createSale } from "@/lib/api";
