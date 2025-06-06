@@ -12,23 +12,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Target, AlertCircle } from "lucide-react";
-import { POSStore } from "@/lib/store";
 import { apiLogin, getCurrentUser } from "@/lib/api";
+import { LoadingSpinner } from "@/components/ui/loading";
 
 export default function Login() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("admin");
+  const [password, setPassword] = useState("password"); // Password field is for UI completeness
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Initialize store
-    POSStore.initializeStore();
-
-    // Check if user is already logged in
-    const currentUser = POSStore.getCurrentUser();
-    if (currentUser) {
+    // If a user is already logged in, redirect them to the dashboard.
+    if (getCurrentUser()) {
       navigate("/");
     }
   }, [navigate]);
@@ -39,10 +35,8 @@ export default function Login() {
     setError("");
 
     try {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const user = POSStore.authenticate(username, password);
+      // Our mock API only needs the username for the demo.
+      const user = await apiLogin(username);
 
       if (user) {
         navigate("/");
@@ -50,7 +44,8 @@ export default function Login() {
         setError("Invalid username or password");
       }
     } catch (err) {
-      setError("An error occurred during login");
+      console.error("Login failed:", err);
+      setError("An unexpected error occurred during login.");
     } finally {
       setIsLoading(false);
     }
@@ -84,6 +79,7 @@ export default function Login() {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter your username"
                 required
+                autoComplete="username"
               />
             </div>
 
@@ -96,6 +92,7 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 required
+                autoComplete="current-password"
               />
             </div>
 
@@ -107,7 +104,7 @@ export default function Login() {
             )}
 
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Signing in..." : "Sign In"}
+              {isLoading ? <LoadingSpinner size="sm" /> : "Sign In"}
             </Button>
           </form>
 
@@ -121,10 +118,10 @@ export default function Login() {
                 <strong>Admin:</strong> admin / any password
               </div>
               <div>
-                <strong>Analyst:</strong> cashier1 / any password
+                <strong>Manager:</strong> manager1 / any password
               </div>
               <div>
-                <strong>Manager:</strong> manager1 / any password
+                <strong>Cashier:</strong> cashier1 / any password
               </div>
             </div>
           </div>
