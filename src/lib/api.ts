@@ -222,3 +222,40 @@ export const createSale = async (items: CartItem[]): Promise<Sale> => {
     DEMO_SALES.push(newSale);
     return newSale;
 };
+
+// Add this function to your src/lib/api.ts file
+
+import { CartItem, Sale } from "@/types";
+import { DEMO_SALES } from "./demo-data";
+import { config } from "./config";
+
+// (Make sure this function is within the same file as your other API functions like fetchProducts, etc.)
+
+export const createSale = async (items: CartItem[]): Promise<Sale> => {
+  console.log("API: Processing sale...");
+  // Simulate network delay for payment processing
+  await new Promise(res => setTimeout(res, 1500)); 
+
+  const currentUser = getCurrentUser(); // Assumes getCurrentUser is in this file
+  if (!currentUser) throw new Error("No authenticated user to process sale.");
+
+  const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const tax = subtotal * config.business.defaultTaxRate;
+  const total = subtotal + tax;
+  const profit = items.reduce((sum, item) => sum + (item.product.price - item.product.cost) * item.quantity, 0);
+
+  const newSale: Sale = {
+    id: `sale_${Date.now()}`,
+    items,
+    total,
+    profit,
+    timestamp: new Date(),
+    userId: currentUser.id,
+    paymentMethod: "card", // Default to card for this demo
+  };
+
+  // In a real app, the backend would handle this. Here, we add to our mock data.
+  DEMO_SALES.push(newSale);
+  
+  return newSale;
+};

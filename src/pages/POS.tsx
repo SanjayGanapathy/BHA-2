@@ -7,45 +7,46 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Search, Filter, CheckCircle, CreditCard, DollarSign, Smartphone } from "lucide-react";
+import { Search, Filter, CheckCircle } from "lucide-react";
 import { fetchProducts, createSale } from "@/lib/api";
 import { Product, CartItem } from "@/types";
 import { LoadingScreen } from "@/components/ui/loading";
 import { useToast } from "@/components/ui/use-toast";
+import { useLocalStorageState } from "@/hooks/useLocalStorageState";
 
 export default function POS() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // --- DATA FETCHING ---
-  const { data: products = [], isLoading } = useQuery<Product[], Error>({
+  // --- DATA FETCHING: Get all available products ---
+  const { data: products = [], isLoading, isError, error } = useQuery<Product[], Error>({
     queryKey: ["products"],
     queryFn: fetchProducts,
   });
 
-  // --- UI STATE ---
-  const [cart, setCart] = useState<CartItem[]>([]);
+  // --- UI STATE: Manage local component state ---
+  const [cart, setCart] = useLocalStorageState<CartItem[]>('shoppingCart', []);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [saleComplete, setSaleComplete] = useState(false);
 
-  // --- DATA MUTATIONS ---
+  // --- DATA MUTATION: Handle submitting a new sale ---
   const saleMutation = useMutation({
     mutationFn: createSale,
     onSuccess: () => {
       toast({ title: "Sale Completed!", description: "The transaction has been recorded." });
-      setCart([]);
+      setCart([]); // Clear the local cart state
       setSaleComplete(true);
-      // Invalidate queries to refetch data and keep the app in sync
+      // Invalidate queries to refetch data and keep the entire app in sync
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["sales"] });
     },
-    onError: (error: Error) => {
-      toast({ title: "Checkout Error", description: error.message, variant: "destructive" });
+    onError: (err: Error) => {
+      toast({ title: "Checkout Error", description: err.message, variant: "destructive" });
     },
   });
 
-  // --- DERIVED STATE & MEMOIZATION ---
+  // --- DERIVED STATE: Calculations that depend on other state ---
   const categories = useMemo(() => ["All", ...new Set(products.map((p) => p.category))], [products]);
 
   const filteredProducts = useMemo(() =>
@@ -59,11 +60,14 @@ export default function POS() {
   // --- EVENT HANDLERS ---
   const addToCart = (product: Product) => {
     if (product.stock === 0) return;
-    setSaleComplete(false); // Hide success message on new action
+    setSaleComplete(false); // Hide previous success message on new action
     setCart((currentCart) => {
       const existingItem = currentCart.find((item) => item.product.id === product.id);
       if (existingItem) {
-        if (existingItem.quantity >= product.stock) return currentCart; // Don't add more than available stock
+        if (existingItem.quantity >= product.stock) {
+          toast({ title: "Stock Limit Reached", description: `Only ${product.stock} units of ${product.name} are available.`});
+          return currentCart;
+        }
         return currentCart.map((item) =>
           item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
@@ -73,7 +77,7 @@ export default function POS() {
   };
 
   const updateQuantity = (productId: string, quantity: number) => {
-    if (quantity === 0) {
+    if (quantity <= 0) {
       removeFromCart(productId);
       return;
     }
@@ -103,43 +107,53 @@ export default function POS() {
 
   // --- RENDER LOGIC ---
   if (isLoading) return <LoadingScreen message="Loading terminal..." />;
+  if (isError) return <div className="p-4 text-center text-red-500"><h2>Error loading products.</h2><p>{error.message}</p></div>
 
   return (
     <POSLayout>
-      <div className="h-full flex">
+      <div className="h-full flex flex-col md:flex-row">
         {/* Product Selection Area */}
         <div className="flex-1 flex flex-col">
-          <div className="p-6 border-b bg-card">
+          <div className="p-4 border-b bg-card">
             <h1 className="text-2xl font-bold text-blue-900">Sales Terminal</h1>
-            <div className="flex gap-4 mt-4">
+            <div className="flex flex-col sm:flex-row gap-4 mt-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input placeholder="Search products..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
               </div>
-              <div className="flex gap-2 items-center overflow-x-auto">
+              <div className="flex gap-2 items-center overflow-x-auto pb-2">
                 {categories.map((cat) => (
-                  <Button key={cat} variant={selectedCategory === cat ? "default" : "outline"} size="sm" onClick={() => setSelectedCategory(cat)}>
+                  <Button key={cat} variant={selectedCategory === cat ? "default" : "outline"} size="sm" onClick={() => setSelectedCategory(cat)} className="flex-shrink-0">
                     {cat}
                   </Button>
                 ))}
               </div>
             </div>
           </div>
-          <div className="flex-1 p-6 overflow-auto">
+          <div className="flex-1 p-4 overflow-y-auto">
             {saleComplete && (
-              <Alert className="mb-6 bg-blue-50 border-blue-200">
+              <Alert className="mb-4 bg-blue-50 border-blue-200">
                 <CheckCircle className="h-4 w-4 text-blue-600" />
                 <AlertDescription className="text-blue-800">Transaction completed successfully!</AlertDescription>
               </Alert>
             )}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {filteredProducts.map((product) => <ProductTile key={product.id} product={product} onClick={addToCart} />)}
-            </div>
+            {filteredProducts.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    {filteredProducts.map((product) => <ProductTile key={product.id} product={product} onClick={addToCart} />)}
+                </div>
+            ) : (
+                <div className="flex items-center justify-center h-full text-center">
+                    <div>
+                        <Filter className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+                        <p className="text-muted-foreground">No products found matching your criteria.</p>
+                    </div>
+                </div>
+            )}
           </div>
         </div>
 
         {/* Cart Area */}
-        <div className="w-96 border-l bg-card">
+        <div className="w-full md:w-96 md:border-l bg-card flex-shrink-0">
           <ShoppingCart
             items={cart}
             onUpdateQuantity={updateQuantity}
@@ -149,7 +163,6 @@ export default function POS() {
             isProcessing={saleMutation.isPending}
             className="h-full"
           />
-          {/* Your payment methods UI can stay here */}
         </div>
       </div>
     </POSLayout>
