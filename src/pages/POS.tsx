@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { POSLayout } from "@/components/layout/POSLayout";
 import { ProductTile } from "@/components/pos/ProductTile";
 import { ShoppingCart } from "@/components/pos/ShoppingCart";
@@ -6,69 +7,69 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Search,
-  Filter,
-  CheckCircle,
-  CreditCard,
-  DollarSign,
-  Smartphone,
-} from "lucide-react";
-import { POSStore } from "@/lib/store";
-import { Product, CartItem, Sale } from "@/types";
-import { cn } from "@/lib/utils";
+import { Search, Filter, CheckCircle, CreditCard, DollarSign, Smartphone } from "lucide-react";
+import { fetchProducts, createSale } from "@/lib/api";
+import { Product, CartItem } from "@/types";
+import { LoadingScreen } from "@/components/ui/loading";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function POS() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // --- DATA FETCHING ---
+  const { data: products = [], isLoading } = useQuery<Product[], Error>({
+    queryKey: ["products"],
+    queryFn: fetchProducts,
+  });
+
+  // --- UI STATE ---
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [isProcessing, setIsProcessing] = useState(false);
   const [saleComplete, setSaleComplete] = useState(false);
 
-  const categories = ["All", ...new Set(products.map((p) => p.category))];
-
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch =
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory =
-      selectedCategory === "All" || product.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+  // --- DATA MUTATIONS ---
+  const saleMutation = useMutation({
+    mutationFn: createSale,
+    onSuccess: () => {
+      toast({ title: "Sale Completed!", description: "The transaction has been recorded." });
+      setCart([]);
+      setSaleComplete(true);
+      // Invalidate queries to refetch data and keep the app in sync
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Checkout Error", description: error.message, variant: "destructive" });
+    },
   });
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  // --- DERIVED STATE & MEMOIZATION ---
+  const categories = useMemo(() => ["All", ...new Set(products.map((p) => p.category))], [products]);
 
-  const loadData = () => {
-    const productsData = POSStore.getProducts();
-    const cartData = POSStore.getCart();
-
-    setProducts(productsData);
-    setCart(cartData);
-  };
-
+  const filteredProducts = useMemo(() =>
+    products.filter((product) => {
+      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = selectedCategory === "All" || product.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    }),
+  [products, searchTerm, selectedCategory]);
+  
+  // --- EVENT HANDLERS ---
   const addToCart = (product: Product) => {
     if (product.stock === 0) return;
-
-    const existingItem = cart.find((item) => item.product.id === product.id);
-    let newCart: CartItem[];
-
-    if (existingItem) {
-      if (existingItem.quantity >= product.stock) return;
-
-      newCart = cart.map((item) =>
-        item.product.id === product.id
-          ? { ...item, quantity: item.quantity + 1 }
-          : item,
-      );
-    } else {
-      newCart = [...cart, { product, quantity: 1 }];
-    }
-
-    setCart(newCart);
-    POSStore.setCart(newCart);
+    setSaleComplete(false); // Hide success message on new action
+    setCart((currentCart) => {
+      const existingItem = currentCart.find((item) => item.product.id === product.id);
+      if (existingItem) {
+        if (existingItem.quantity >= product.stock) return currentCart; // Don't add more than available stock
+        return currentCart.map((item) =>
+          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+        );
+      }
+      return [...currentCart, { product, quantity: 1 }];
+    });
   };
 
   const updateQuantity = (productId: string, quantity: number) => {
@@ -76,153 +77,64 @@ export default function POS() {
       removeFromCart(productId);
       return;
     }
-
-    const newCart = cart.map((item) =>
-      item.product.id === productId ? { ...item, quantity } : item,
+    setCart((currentCart) =>
+      currentCart.map((item) =>
+        item.product.id === productId ? { ...item, quantity } : item
+      )
     );
-
-    setCart(newCart);
-    POSStore.setCart(newCart);
   };
 
   const removeFromCart = (productId: string) => {
-    const newCart = cart.filter((item) => item.product.id !== productId);
-    setCart(newCart);
-    POSStore.setCart(newCart);
+    setCart((currentCart) => currentCart.filter((item) => item.product.id !== productId));
   };
-
+  
   const clearCart = () => {
     setCart([]);
-    POSStore.clearCart();
     setSaleComplete(false);
   };
 
-  const processCheckout = async () => {
-    if (cart.length === 0) return;
-
-    setIsProcessing(true);
-
-    try {
-      // Simulate payment processing
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      const currentUser = POSStore.getCurrentUser();
-      if (!currentUser) throw new Error("No user logged in");
-
-      const subtotal = cart.reduce(
-        (sum, item) => sum + item.product.price * item.quantity,
-        0,
-      );
-      const tax = subtotal * 0.08;
-      const total = subtotal + tax;
-      const profit = cart.reduce(
-        (sum, item) =>
-          sum + (item.product.price - item.product.cost) * item.quantity,
-        0,
-      );
-
-      const sale: Sale = {
-        id: `sale_${Date.now()}`,
-        items: cart,
-        total,
-        profit,
-        timestamp: new Date(),
-        userId: currentUser.id,
-        paymentMethod: "cash", // In a real system, this would be selected
-      };
-
-      POSStore.addSale(sale);
-
-      // Update products with new stock levels
-      const updatedProducts = POSStore.getProducts();
-      setProducts(updatedProducts);
-
-      setSaleComplete(true);
-      clearCart();
-    } catch (error) {
-      console.error("Checkout error:", error);
-      alert("Error processing sale. Please try again.");
-    } finally {
-      setIsProcessing(false);
+  const processCheckout = () => {
+    if (cart.length === 0) {
+      toast({ title: "Empty Cart", description: "Please add products to the cart before checkout.", variant: "destructive" });
+      return;
     }
+    saleMutation.mutate(cart);
   };
+
+  // --- RENDER LOGIC ---
+  if (isLoading) return <LoadingScreen message="Loading terminal..." />;
 
   return (
     <POSLayout>
       <div className="h-full flex">
         {/* Product Selection Area */}
         <div className="flex-1 flex flex-col">
-          {/* Header */}
           <div className="p-6 border-b bg-card">
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-2xl font-bold text-blue-900">
-                Sales Terminal
-              </h1>
-              <Badge variant="secondary" className="text-sm">
-                {filteredProducts.length} products
-              </Badge>
-            </div>
-
-            {/* Search and Filter */}
-            <div className="flex gap-4">
+            <h1 className="text-2xl font-bold text-blue-900">Sales Terminal</h1>
+            <div className="flex gap-4 mt-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search products..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+                <Input placeholder="Search products..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
               </div>
-
-              <div className="flex gap-2">
-                {categories.map((category) => (
-                  <Button
-                    key={category}
-                    variant={
-                      selectedCategory === category ? "default" : "outline"
-                    }
-                    size="sm"
-                    onClick={() => setSelectedCategory(category)}
-                  >
-                    {category}
+              <div className="flex gap-2 items-center overflow-x-auto">
+                {categories.map((cat) => (
+                  <Button key={cat} variant={selectedCategory === cat ? "default" : "outline"} size="sm" onClick={() => setSelectedCategory(cat)}>
+                    {cat}
                   </Button>
                 ))}
               </div>
             </div>
           </div>
-
-          {/* Products Grid */}
           <div className="flex-1 p-6 overflow-auto">
             {saleComplete && (
               <Alert className="mb-6 bg-blue-50 border-blue-200">
                 <CheckCircle className="h-4 w-4 text-blue-600" />
-                <AlertDescription className="text-blue-800">
-                  Transaction completed successfully! Data recorded.
-                </AlertDescription>
+                <AlertDescription className="text-blue-800">Transaction completed successfully!</AlertDescription>
               </Alert>
             )}
-
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {filteredProducts.map((product) => (
-                <ProductTile
-                  key={product.id}
-                  product={product}
-                  onClick={addToCart}
-                />
-              ))}
+              {filteredProducts.map((product) => <ProductTile key={product.id} product={product} onClick={addToCart} />)}
             </div>
-
-            {filteredProducts.length === 0 && (
-              <div className="flex items-center justify-center h-64 text-center">
-                <div>
-                  <Filter className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
-                  <p className="text-muted-foreground">
-                    No products found matching your criteria
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
@@ -234,52 +146,10 @@ export default function POS() {
             onRemoveItem={removeFromCart}
             onCheckout={processCheckout}
             onClear={clearCart}
+            isProcessing={saleMutation.isPending}
             className="h-full"
           />
-
-          {/* Payment Methods (for UI completeness) */}
-          {cart.length > 0 && (
-            <div className="p-4 border-t">
-              <p className="text-sm font-medium mb-2">Payment Method:</p>
-              <div className="grid grid-cols-3 gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex flex-col gap-1 h-auto py-2"
-                >
-                  <DollarSign className="h-4 w-4" />
-                  <span className="text-xs">Cash</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex flex-col gap-1 h-auto py-2"
-                >
-                  <CreditCard className="h-4 w-4" />
-                  <span className="text-xs">Card</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex flex-col gap-1 h-auto py-2"
-                >
-                  <Smartphone className="h-4 w-4" />
-                  <span className="text-xs">Mobile</span>
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Processing Overlay */}
-          {isProcessing && (
-            <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-              <div className="bg-card p-6 rounded-lg shadow-lg text-center">
-                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-3"></div>
-                <p className="font-medium">Processing Sale...</p>
-                <p className="text-sm text-muted-foreground">Please wait</p>
-              </div>
-            </div>
-          )}
+          {/* Your payment methods UI can stay here */}
         </div>
       </div>
     </POSLayout>

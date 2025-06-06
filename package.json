@@ -4,17 +4,17 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-  "dev": "vite",
-  "build": "vite build",
-  "start": "serve -s dist",
-  "test": "vitest --run",
-  "format:fix": "prettier --write .",
-  "typecheck": "tsc",
-  "audit": "npm audit --audit-level moderate",
-  "outdated": "npm outdated"
-},
+    "dev": "vite",
+    "build": "vite build",
+    "start": "serve -s dist",
+    "test": "vitest --run",
+    "format:fix": "prettier --write .",
+    "typecheck": "tsc",
+    "audit": "npm audit --audit-level moderate",
+    "outdated": "npm outdated"
+  },
   "dependencies": {
-    "@hookform/resolvers": "^3.9.0",
+    "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.1",
     "@radix-ui/react-aspect-ratio": "^1.1.0",
