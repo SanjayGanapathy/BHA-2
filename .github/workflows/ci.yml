@@ -23,15 +23,15 @@ jobs:
         run: npm ci
 
       - name: Run Tests
-        # THIS IS THE NEW PART: We add an 'env' block to securely provide
-        # the secrets as environment variables to the test command.
+        # THIS IS THE FIX: We add an 'env' block to securely provide
+        # the secrets as environment variables directly to the test command.
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run test
 
       - name: Build application
-        # The build step also needs access to the variables
+        # The build step also needs access to the variables for deployment
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
