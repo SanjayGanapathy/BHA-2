@@ -100,3 +100,30 @@ export const DEMO_USERS: User[] = [
     isActive: true,
   },
 ];
+
+// Add this to the end of src/lib/demo-data.ts
+import { Sale } from "@/types";
+
+export const DEMO_SALES: Sale[] = [
+  {
+    id: "sale_1",
+    items: [
+      { product: DEMO_PRODUCTS[0], quantity: 2 },
+      { product: DEMO_PRODUCTS[2], quantity: 1 },
+    ],
+    total: 10.75,
+    profit: 5.25,
+    timestamp: new Date(new Date().setDate(new Date().getDate() - 1)), // Yesterday
+    userId: "2",
+    paymentMethod: "card",
+  },
+  {
+    id: "sale_2",
+    items: [{ product: DEMO_PRODUCTS[1], quantity: 1 }],
+    total: 4.5,
+    profit: 3.3,
+    timestamp: new Date(), // Today
+    userId: "2",
+    paymentMethod: "cash",
+  },
+];
