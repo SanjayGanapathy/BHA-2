@@ -1,192 +1,159 @@
 import { Product, Sale, User, CartItem } from "@/types";
-import { DEMO_PRODUCTS, DEMO_SALES, DEMO_USERS } from "./demo-data";
+import { supabase } from './supabaseClient';
 import { config } from "./config";
 
-/**
- * A helper function to simulate network latency.
- * @param ms - The number of milliseconds to wait.
- */
+// --- Helper Functions ---
+
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
-// --- Authentication API ---
+// --- Authentication API (Using Supabase Auth) ---
 
-/**
- * Simulates a user login.
- * @param username - The username to authenticate.
- * @returns A User object if successful, otherwise null.
- */
-export const apiLogin = async (username: string): Promise<User | null> => {
-  console.log("API: Attempting login for user:", username);
-  await delay(500);
-  const user = DEMO_USERS.find(u => u.username === username && u.isActive);
-  if (user) {
-    localStorage.setItem("currentUser", JSON.stringify(user));
-    return user;
-  }
-  return null;
+export const apiLogin = async (email: string, password: string): Promise<User | null> => {
+  console.log("API: Attempting real login with Supabase for user:", email);
+  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+    email: email,
+    password: password,
+  });
+
+  if (authError) throw authError;
+  if (!authData.user) throw new Error("Login failed, no user returned.");
+  
+  const { data: userData, error: userError } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', authData.user.id)
+    .single();
+
+  if (userError) throw userError;
+  
+  return userData;
 };
 
-/**
- * Simulates a user logout.
- */
 export const apiLogout = async () => {
-  console.log("API: Logging out user.");
-  await delay(200);
-  localStorage.removeItem("currentUser");
+  console.log("API: Signing out with Supabase.");
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
 };
 
-/**
- * Retrieves the current user from local storage.
- * @returns The currently logged-in User object, or null.
- */
-export const getCurrentUser = (): User | null => {
-  try {
-    const data = localStorage.getItem("currentUser");
-    return data ? JSON.parse(data) : null;
-  } catch (error) {
-    console.error("Failed to parse user from localStorage", error);
-    localStorage.removeItem("currentUser");
-    return null;
-  }
-};
-
-
-// --- Products API ---
-
-/**
- * Simulates fetching all products.
- */
-export const fetchProducts = async (): Promise<Product[]> => {
-  console.log("API: Fetching products...");
-  await delay(500);
-  return Promise.resolve([...DEMO_PRODUCTS]);
-};
-
-/**
- * Simulates adding a new product.
- */
-export const addProduct = async (productData: Omit<Product, "id">): Promise<Product> => {
-  console.log("API: Adding product...", productData);
-  await delay(700);
-  const newProduct: Product = {
-    ...productData,
-    id: `product_${Date.now()}`,
-  };
-  DEMO_PRODUCTS.push(newProduct);
-  return newProduct;
-};
-
-/**
- * Simulates updating an existing product.
- */
-export const updateProduct = async (productData: Product): Promise<Product> => {
-  console.log("API: Updating product...", productData);
-  await delay(700);
-  const index = DEMO_PRODUCTS.findIndex((p) => p.id === productData.id);
-  if (index !== -1) {
-    DEMO_PRODUCTS[index] = productData;
-    return productData;
-  }
-  throw new Error("Product not found");
-};
-
-/**
- * Simulates deleting a product.
- */
-export const deleteProduct = async (productId: string): Promise<{ id: string }> => {
-  console.log("API: Deleting product...", productId);
-  await delay(700);
-  const index = DEMO_PRODUCTS.findIndex((p) => p.id === productId);
-  if (index !== -1) {
-    DEMO_PRODUCTS.splice(index, 1);
-    return { id: productId };
-  }
-  throw new Error("Product not found");
-};
-
-
-// --- Users API ---
-
-/**
- * Simulates fetching all users.
- */
-export const fetchUsers = async (): Promise<User[]> => {
-  console.log("API: Fetching users...");
-  await delay(500);
-  return Promise.resolve([...DEMO_USERS]);
-};
-
-/**
- * Simulates updating an existing user.
- */
-export const updateUser = async (userData: User): Promise<User> => {
-    console.log("API: Updating user...", userData);
-    await delay(700);
-    const index = DEMO_USERS.findIndex((u) => u.id === userData.id);
-    if (index !== -1) {
-        DEMO_USERS[index] = userData;
-        return userData;
+export const getCurrentUser = async (): Promise<User | null> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return null;
+    
+    const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+        
+    if (error) {
+        console.error("Error fetching user profile:", error);
+        return null;
     }
-    throw new Error("User not found");
+    return userData;
 };
 
-/**
- * Simulates adding a new user.
- */
+// --- Products API (Using Supabase DB) ---
+
+export const fetchProducts = async (): Promise<Product[]> => {
+  const { data, error } = await supabase.from('products').select('*');
+  if (error) throw error;
+  return data || [];
+};
+
+export const addProduct = async (productData: Omit<Product, "id" | "created_at">): Promise<Product> => {
+  const { data, error } = await supabase.from('products').insert([productData]).select().single();
+  if (error) throw error;
+  return data;
+};
+
+export const updateProduct = async (productData: Omit<Product, "created_at">): Promise<Product> => {
+  const { id, ...updateData } = productData;
+  const { data, error } = await supabase.from('products').update(updateData).eq('id', id).select().single();
+  if (error) throw error;
+  return data;
+};
+
+export const deleteProduct = async (productId: string): Promise<{ id: string }> => {
+  const { error } = await supabase.from('products').delete().eq('id', productId);
+  if (error) throw error;
+  return { id: productId };
+};
+
+// --- Users API (Using Supabase DB) ---
+
+export const fetchUsers = async (): Promise<User[]> => {
+  const { data, error } = await supabase.from('users').select('*');
+  if (error) throw error;
+  return data || [];
+};
+
 export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
-    console.log("API: Adding user...", userData);
-    await delay(700);
-    const newUser: User = { ...userData, id: `user_${Date.now()}`};
-    DEMO_USERS.push(newUser);
-    return newUser;
+    // NOTE: A real-world addUser would use `supabase.auth.signUp()` and then
+    // create a corresponding entry in the `users` table, likely via a database trigger.
+    // This simplified version allows the UI to function for the demo.
+    console.warn("Using simplified addUser. This should be replaced with a proper Supabase Auth flow.");
+    const { data, error } = await supabase.from('users').insert([userData]).select().single();
+    if (error) throw error;
+    return data;
 }
 
+export const updateUser = async (userData: User): Promise<User> => {
+    const { id, ...updateData } = userData;
+    const { data, error } = await supabase.from('users').update(updateData).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
 
-// --- Sales & AI API ---
+// --- Sales API (Using Supabase DB) ---
 
-/**
- * Simulates fetching all sales records.
- */
 export const fetchSales = async (): Promise<Sale[]> => {
-  console.log("API: Fetching sales...");
-  await delay(800);
-  return Promise.resolve([...DEMO_SALES]);
+  const { data, error } = await supabase
+    .from('sales')
+    .select('*, sale_items(*, products(*))');
+
+  if (error) throw error;
+  // NOTE: The data structure from this join might need further mapping if your UI expects a different shape.
+  return (data as any[]) || [];
 };
 
-/**
- * Simulates creating a new sale from a cart.
- */
 export const createSale = async (items: CartItem[]): Promise<Sale> => {
-    console.log("API: Processing sale...");
-    await delay(1500);
-  
-    const currentUser = getCurrentUser();
-    if (!currentUser) throw new Error("No authenticated user to process sale.");
-  
-    const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-    const tax = subtotal * config.business.defaultTaxRate;
-    const total = subtotal + tax;
+    // NOTE: In a high-traffic production app, this entire operation should be a single database
+    // transaction using an RPC function in Supabase to ensure all steps succeed or fail together.
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Must be logged in to create a sale.");
+    
+    const total = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
     const profit = items.reduce((sum, item) => sum + (item.product.price - item.product.cost) * item.quantity, 0);
-  
-    const newSale: Sale = {
-      id: `sale_${Date.now()}`,
-      items,
-      total,
-      profit,
-      timestamp: new Date(),
-      userId: currentUser.id,
-      paymentMethod: "card",
-    };
-  
-    DEMO_SALES.push(newSale);
-    return newSale;
+
+    const { data: saleData, error: saleError } = await supabase
+      .from('sales')
+      .insert({ user_id: user.id, total, profit })
+      .select()
+      .single();
+
+    if (saleError) throw saleError;
+    if (!saleData) throw new Error("Failed to create sale record.");
+
+    const saleItemsData = items.map(item => ({
+      sale_id: saleData.id,
+      product_id: item.product.id,
+      quantity: item.quantity,
+      price_at_sale: item.product.price,
+    }));
+
+    const { error: itemsError } = await supabase.from('sale_items').insert(saleItemsData);
+
+    if (itemsError) {
+        await supabase.from('sales').delete().eq('id', saleData.id);
+        throw itemsError;
+    }
+
+    return saleData;
 };
 
-/**
- * Simulates getting a response from an AI assistant.
- */
+// --- AI API (This remains a mock for demonstration) ---
 export const fetchAiResponse = async (userMessage: string): Promise<string> => {
-    console.log("API: Generating AI Response for:", userMessage);
+    console.warn("Using mock AI response.");
     await delay(1500);
     const message = userMessage.toLowerCase();
 
