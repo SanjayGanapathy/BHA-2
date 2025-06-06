@@ -124,22 +124,49 @@ export default function Products() {
           <div><h1 className="text-3xl font-bold tracking-tight text-blue-900">Product Management</h1><p className="text-muted-foreground">Manage your inventory and product catalog</p></div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}><DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" />Add Product</Button></DialogTrigger>
             <DialogContent><DialogHeader><DialogTitle>{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle><DialogDescription>{editingProduct ? "Update this product's information." : "Add a new product to your inventory."}</DialogDescription></DialogHeader>
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-                <div className="grid grid-cols-2 gap-4">
-                  <div><Label htmlFor="name">Product Name</Label><Input id="name" {...register("name")} /><p className="text-sm text-red-500 mt-1 h-4">{errors.name?.message}</p></div>
-                  <div><Label htmlFor="category">Category</Label><Input id="category" {...register("category")} /><p className="text-sm text-red-500 mt-1 h-4">{errors.category?.message}</p></div>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div><Label htmlFor="price">Price ($)</Label><Input id="price" type="number" step="0.01" {...register("price")} /><p className="text-sm text-red-500 mt-1 h-4">{errors.price?.message}</p></div>
-                  <div><Label htmlFor="cost">Cost ($)</Label><Input id="cost" type="number" step="0.01" {...register("cost")} /><p className="text-sm text-red-500 mt-1 h-4">{errors.cost?.message}</p></div>
-                  <div><Label htmlFor="stock">Stock</Label><Input id="stock" type="number" {...register("stock")} /><p className="text-sm text-red-500 mt-1 h-4">{errors.stock?.message}</p></div>
-                </div>
-                <div><Label htmlFor="description">Description</Label><Input id="description" {...register("description")} /></div>
-                <div className="flex gap-2 pt-2">
-                    <Button type="submit" className="flex-1" disabled={productMutation.isPending}>{productMutation.isPending ? <LoadingSpinner size="sm"/> : "Save Product"}</Button>
-                    <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-                </div>
-              </form>
+<form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+  <fieldset disabled={productMutation.isPending}>
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label htmlFor="name">Product Name</Label>
+        <Input id="name" {...register("name")} />
+        <p className="text-sm text-red-500 mt-1 h-4">{errors.name?.message}</p>
+      </div>
+      <div>
+        <Label htmlFor="category">Category</Label>
+        <Input id="category" {...register("category")} />
+        <p className="text-sm text-red-500 mt-1 h-4">{errors.category?.message}</p>
+      </div>
+    </div>
+    <div className="grid grid-cols-3 gap-4">
+      <div>
+        <Label htmlFor="price">Price ($)</Label>
+        <Input id="price" type="number" step="0.01" {...register("price")} />
+        <p className="text-sm text-red-500 mt-1 h-4">{errors.price?.message}</p>
+      </div>
+      <div>
+        <Label htmlFor="cost">Cost ($)</Label>
+        <Input id="cost" type="number" step="0.01" {...register("cost")} />
+        <p className="text-sm text-red-500 mt-1 h-4">{errors.cost?.message}</p>
+      </div>
+      <div>
+        <Label htmlFor="stock">Stock</Label>
+        <Input id="stock" type="number" {...register("stock")} />
+        <p className="text-sm text-red-500 mt-1 h-4">{errors.stock?.message}</p>
+      </div>
+    </div>
+    <div>
+      <Label htmlFor="description">Description</Label>
+      <Input id="description" {...register("description")} />
+    </div>
+  </fieldset>
+  <div className="flex gap-2 pt-2">
+      <Button type="submit" className="flex-1" disabled={productMutation.isPending}>
+        {productMutation.isPending ? <LoadingSpinner size="sm"/> : "Save Product"}
+      </Button>
+      <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+  </div>
+</form>
             </DialogContent>
           </Dialog>
         </div>

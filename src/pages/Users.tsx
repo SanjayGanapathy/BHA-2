@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 import { LoadingScreen, LoadingSpinner } from "@/components/ui/loading";
 
+// Zod schema for validating the user form
 const userSchema = z.object({
   name: z.string().min(2, { message: "Full name is required." }),
   username: z.string().min(3, { message: "Username must be at least 3 characters." }),
@@ -32,21 +33,27 @@ export default function Users() {
   const queryClient = useQueryClient();
   const activeUser = getCurrentUser();
 
-  const { data: users = [], isLoading } = useQuery<User[], Error>({ queryKey: ["users"], queryFn: fetchUsers });
-  
+  const { data: users = [], isLoading, isError, error } = useQuery<User[], Error>({
+    queryKey: ["users"],
+    queryFn: fetchUsers,
+  });
+
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
-    defaultValues: { role: "cashier" }
+    defaultValues: { role: "cashier" },
   });
 
   useEffect(() => {
     if (isDialogOpen) {
-      if (editingUser) reset(editingUser);
-      else reset({ name: "", username: "", email: "", role: "cashier" });
+      if (editingUser) {
+        reset(editingUser);
+      } else {
+        reset({ name: "", username: "", email: "", role: "cashier" });
+      }
     } else {
       setEditingUser(null);
     }
@@ -70,8 +77,8 @@ export default function Users() {
   const toggleStatusMutation = useMutation({
     mutationFn: updateUser,
     onSuccess: (updatedUser) => {
-        toast({title: "Status Updated", description: `${updatedUser.name} is now ${updatedUser.isActive ? 'active' : 'inactive'}.`});
-        queryClient.invalidateQueries({queryKey: ['users']});
+      toast({title: "Status Updated", description: `${updatedUser.name} is now ${updatedUser.isActive ? 'active' : 'inactive'}.`});
+      queryClient.invalidateQueries({queryKey: ['users']});
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -80,61 +87,93 @@ export default function Users() {
     userMutation.mutate({ userData: data, id: editingUser?.id });
   };
   
-  const toggleUserStatus = (user: User) => {
+  const handleEditClick = (user: User) => {
+    setEditingUser(user);
+    setIsDialogOpen(true);
+  };
+  
+  const handleAddClick = () => {
+    setEditingUser(null);
+    setIsDialogOpen(true);
+  };
+
+  const handleToggleStatus = (user: User) => {
     if (user.id === activeUser?.id) {
-        toast({ title: "Action Forbidden", description: "You cannot deactivate your own account.", variant: "destructive" });
-        return;
+      toast({ title: "Action Forbidden", description: "You cannot deactivate your own account.", variant: "destructive" });
+      return;
     }
     toggleStatusMutation.mutate({ ...user, isActive: !user.isActive });
   };
 
   const filteredUsers = useMemo(() =>
-    users.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase())),
+    users.filter(u =>
+      u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchTerm.toLowerCase())
+    ),
   [users, searchTerm]);
+  
+  const stats = useMemo(() => ({
+    active: users.filter(u => u.isActive).length,
+    inactive: users.filter(u => !u.isActive).length,
+    admins: users.filter(u => u.role === 'admin').length,
+  }), [users]);
 
   if (isLoading) return <LoadingScreen message="Loading users..." />;
+  if (isError) return <div className="p-4 text-red-500">Error: {error.message}</div>;
 
   return (
     <POSLayout>
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div><h1 className="text-3xl font-bold">User Management</h1><p className="text-muted-foreground">Manage accounts and permissions</p></div>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-blue-900">User Management</h1>
+            <p className="text-muted-foreground">Manage user accounts and access permissions</p>
+          </div>
           {activeUser?.role === 'admin' && (
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}><DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4"/>Add User</Button></DialogTrigger>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild><Button onClick={handleAddClick}><Plus className="mr-2 h-4 w-4"/>Add User</Button></DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>{editingUser ? "Edit User" : "Add New User"}</DialogTitle></DialogHeader>
+                <DialogHeader>
+                    <DialogTitle>{editingUser ? "Edit User" : "Add New User"}</DialogTitle>
+                    <DialogDescription>{editingUser ? "Update this user's information." : "Create a new user account."}</DialogDescription>
+                </DialogHeader>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input id="name" {...register("name")} />
-                    {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="username">Username</Label>
-                    <Input id="username" {...register("username")} />
-                    {errors.username && <p className="text-sm text-red-500">{errors.username.message}</p>}
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" {...register("email")} />
-                    {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Role</Label>
-                    <Controller name="role" control={control} render={({ field }) => (
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="cashier">Cashier</SelectItem>
-                          <SelectItem value="manager">Manager</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )} />
-                  </div>
+                  <fieldset disabled={userMutation.isPending} className="space-y-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="name">Full Name</Label>
+                      <Input id="name" {...register("name")} />
+                      {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <Label htmlFor="username">Username</Label>
+                            <Input id="username" {...register("username")} />
+                            {errors.username && <p className="text-sm text-red-500">{errors.username.message}</p>}
+                        </div>
+                        <div className="space-y-1">
+                            <Label htmlFor="role">Role</Label>
+                            <Controller name="role" control={control} render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="cashier">Cashier</SelectItem>
+                                    <SelectItem value="manager">Manager</SelectItem>
+                                    <SelectItem value="admin">Admin</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            )} />
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="email">Email Address</Label>
+                      <Input id="email" type="email" {...register("email")} />
+                      {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
+                    </div>
+                  </fieldset>
                   <div className="flex justify-end gap-2 pt-4">
-                    <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                    <Button type="submit" disabled={userMutation.isPending}>{userMutation.isPending ? <LoadingSpinner size="sm"/> : "Save"}</Button>
+                    <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)} disabled={userMutation.isPending}>Cancel</Button>
+                    <Button type="submit" disabled={userMutation.isPending}>{userMutation.isPending ? <LoadingSpinner size="sm"/> : "Save User"}</Button>
                   </div>
                 </form>
               </DialogContent>
@@ -142,10 +181,17 @@ export default function Users() {
           )}
         </div>
         
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Users</CardTitle><UsersIcon className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{users.length}</div></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Active Users</CardTitle><UserCheck className="h-4 w-4 text-green-500" /></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">{stats.active}</div></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Inactive Users</CardTitle><UserX className="h-4 w-4 text-red-500" /></CardHeader><CardContent><div className="text-2xl font-bold text-red-600">{stats.inactive}</div></CardContent></Card>
+            <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Administrators</CardTitle><Shield className="h-4 w-4 text-blue-500" /></CardHeader><CardContent><div className="text-2xl font-bold text-blue-600">{stats.admins}</div></CardContent></Card>
+        </div>
+
         <Card>
           <CardHeader>
             <CardTitle>User Accounts</CardTitle>
-            <div className="relative max-w-sm"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"/><Input placeholder="Search by name..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-8"/></div>
+            <div className="relative max-w-sm"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"/><Input placeholder="Search by name, username, or email..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-8"/></div>
           </CardHeader>
           <CardContent>
             <Table>
@@ -153,14 +199,16 @@ export default function Users() {
               <TableBody>
                 {filteredUsers.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell><div>{user.name}<div className="text-sm text-muted-foreground">{user.email}</div></div></TableCell>
-                    <TableCell><Badge>{user.role}</Badge></TableCell>
-                    <TableCell><Badge variant={user.isActive ? 'default' : 'destructive'}>{user.isActive ? 'Active' : 'Inactive'}</Badge></TableCell>
+                    <TableCell><div><span className="font-medium">{user.name}</span>{user.id === activeUser?.id && <Badge variant="outline" className="ml-2">You</Badge>}<div className="text-sm text-muted-foreground">{user.email}</div></div></TableCell>
+                    <TableCell><Badge variant="secondary">{user.role}</Badge></TableCell>
+                    <TableCell><Badge className={cn(user.isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")}>{user.isActive ? 'Active' : 'Inactive'}</Badge></TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(user)} disabled={activeUser?.role !== 'admin'}><Edit className="h-4 w-4"/></Button>
-                      <Button variant="ghost" size="icon" onClick={() => toggleUserStatus(user)} disabled={user.id === activeUser?.id || activeUser?.role !== 'admin' || toggleStatusMutation.isPending}>
-                        {user.isActive ? <UserX className="h-4 w-4 text-red-500"/> : <UserCheck className="h-4 w-4 text-green-500"/>}
-                      </Button>
+                        {activeUser?.role === 'admin' && user.id !== activeUser?.id && (
+                            <div className="flex items-center gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => handleEditClick(user)}><Edit className="h-4 w-4"/></Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleToggleStatus(user)} disabled={toggleStatusMutation.isPending}>{user.isActive ? <UserX className="h-4 w-4 text-red-500"/> : <UserCheck className="h-4 w-4 text-green-500"/>}</Button>
+                            </div>
+                        )}
                     </TableCell>
                   </TableRow>
                 ))}
