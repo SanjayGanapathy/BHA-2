@@ -5,41 +5,36 @@ import { ProductTile } from "@/components/pos/ProductTile";
 import { ShoppingCart } from "@/components/pos/ShoppingCart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { useLocalStorageState } from "@/hooks/useLocalStorageState";
-import { CartItem } from "@/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Search, Filter, CheckCircle } from "lucide-react";
 import { fetchProducts, createSale } from "@/lib/api";
 import { Product, CartItem } from "@/types";
-import { LoadingScreen } from "@/components/ui/loading";
 import { useToast } from "@/components/ui/use-toast";
+
+// Corrected import paths
 import { useLocalStorageState } from "@/hooks/useLocalStorageState";
+import { LoadingScreen, LoadingSpinner } from "@/components/ui/loading";
 
 export default function POS() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // --- DATA FETCHING: Get all available products ---
   const { data: products = [], isLoading, isError, error } = useQuery<Product[], Error>({
     queryKey: ["products"],
     queryFn: fetchProducts,
   });
 
-  // --- UI STATE: Manage local component state ---
   const [cart, setCart] = useLocalStorageState<CartItem[]>('shoppingCart', []);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [saleComplete, setSaleComplete] = useState(false);
 
-  // --- DATA MUTATION: Handle submitting a new sale ---
   const saleMutation = useMutation({
     mutationFn: createSale,
     onSuccess: () => {
       toast({ title: "Sale Completed!", description: "The transaction has been recorded." });
-      setCart([]); // Clear the local cart state
+      setCart([]);
       setSaleComplete(true);
-      // Invalidate queries to refetch data and keep the entire app in sync
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["sales"] });
     },
@@ -48,7 +43,6 @@ export default function POS() {
     },
   });
 
-  // --- DERIVED STATE: Calculations that depend on other state ---
   const categories = useMemo(() => ["All", ...new Set(products.map((p) => p.category))], [products]);
 
   const filteredProducts = useMemo(() =>
@@ -59,10 +53,9 @@ export default function POS() {
     }),
   [products, searchTerm, selectedCategory]);
   
-  // --- EVENT HANDLERS ---
   const addToCart = (product: Product) => {
     if (product.stock === 0) return;
-    setSaleComplete(false); // Hide previous success message on new action
+    setSaleComplete(false);
     setCart((currentCart) => {
       const existingItem = currentCart.find((item) => item.product.id === product.id);
       if (existingItem) {
@@ -107,14 +100,12 @@ export default function POS() {
     saleMutation.mutate(cart);
   };
 
-  // --- RENDER LOGIC ---
   if (isLoading) return <LoadingScreen message="Loading terminal..." />;
-  if (isError) return <div className="p-4 text-center text-red-500"><h2>Error loading products.</h2><p>{error.message}</p></div>
+  if (isError) return <div className="p-4 text-center text-red-500"><h2>Error loading products.</h2><p>{error.message}</p></div>;
 
   return (
     <POSLayout>
       <div className="h-full flex flex-col md:flex-row">
-        {/* Product Selection Area */}
         <div className="flex-1 flex flex-col">
           <div className="p-4 border-b bg-card">
             <h1 className="text-2xl font-bold text-blue-900">Sales Terminal</h1>
@@ -153,8 +144,6 @@ export default function POS() {
             )}
           </div>
         </div>
-
-        {/* Cart Area */}
         <div className="w-full md:w-96 md:border-l bg-card flex-shrink-0">
           <ShoppingCart
             items={cart}

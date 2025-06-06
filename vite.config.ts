@@ -1,4 +1,4 @@
-// vite.config.ts
+/// <reference types="vitest" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
@@ -21,7 +21,6 @@ export default defineConfig({
     minify: "esbuild",
     sourcemap: false,
   },
-  // ADD THIS ENTIRE 'test' OBJECT
   test: {
     globals: true,
     environment: 'jsdom',

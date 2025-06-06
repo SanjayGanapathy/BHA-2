@@ -1,16 +1,12 @@
-// src/components/analytics/MetricsCard.tsx
-
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Add 'testId' to the props interface
 interface MetricsCardProps {
   title: string;
   value: string | number;
-  testId: string; // Add this required prop
   description?: string;
   trend?: {
     value: number;
@@ -28,15 +24,35 @@ export function MetricsCard({
   trend,
   icon,
   className,
-  testId, // Destructure the new prop
 }: MetricsCardProps) {
+  const getTrendIcon = () => {
+    if (!trend) return null;
+    switch (trend.direction) {
+      case "up":
+        return <TrendingUp className="h-3 w-3" />;
+      case "down":
+        return <TrendingDown className="h-3 w-3" />;
+      default:
+        return <Minus className="h-3 w-3" />;
+    }
+  };
+
+  const getTrendColor = () => {
+    if (!trend) return "";
+    switch (trend.direction) {
+      case "up":
+        return "text-green-600 bg-green-50 border-green-200";
+      case "down":
+        return "text-red-600 bg-red-50 border-red-200";
+      default:
+        return "text-gray-600 bg-gray-50 border-gray-200";
+    }
+  };
   
-  // All the helper functions can remain the same...
-  const getTrendIcon = () => { /* ... */ };
-  const getTrendColor = () => { /* ... */ };
+  // Create a clean test ID by removing apostrophes and replacing spaces with hyphens.
+  const testId = `metrics-card-${title.toLowerCase().replace(/'/g, "").replace(/\s+/g, "-")}`;
 
   return (
-    // Use the prop directly. No more string generation.
     <Card className={className} data-testid={testId}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
