@@ -1,6 +1,11 @@
+import React from 'react';
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthProvider } from './auth/AuthProvider';
+
+const queryClient = new QueryClient();
 
 // Comprehensive warning suppression for Recharts defaultProps warnings
 if (import.meta.env.DEV) {
@@ -13,35 +18,10 @@ if (import.meta.env.DEV) {
   const isRechartsWarning = (...args: any[]): boolean => {
     try {
       const message = args.join(" ");
-
-      // Check for React's warning template pattern with %s placeholders
-      const hasTemplate =
-        args[0] && typeof args[0] === "string" && args[0].includes("%s");
       const hasDefaultPropsMessage = message.includes(
         "Support for defaultProps will be removed",
       );
-      const hasAxisComponents =
-        message.includes("XAxis") ||
-        message.includes("YAxis") ||
-        message.includes("XAxis2") ||
-        message.includes("YAxis2");
-      const hasRechartsContext =
-        message.includes("recharts.js") ||
-        message.includes("CategoricalChartWrapper") ||
-        message.includes("ChartLayoutContextProvider");
-
-      return (
-        // React warning pattern for defaultProps
-        (hasTemplate && hasDefaultPropsMessage) ||
-        // Direct message match
-        hasDefaultPropsMessage ||
-        // Axis component warnings
-        (hasAxisComponents &&
-          (message.includes("defaultProps") || hasDefaultPropsMessage)) ||
-        // Recharts-specific context
-        (hasRechartsContext &&
-          (message.includes("defaultProps") || hasDefaultPropsMessage))
-      );
+      return hasDefaultPropsMessage;
     } catch (e) {
       return false;
     }
@@ -66,7 +46,7 @@ if (import.meta.env.DEV) {
     }
   };
 
-  // Intercept window error events
+  // Intercept window error events that might be related
   window.addEventListener("error", (event) => {
     if (event.message && isRechartsWarning(event.message)) {
       event.preventDefault();
@@ -74,7 +54,6 @@ if (import.meta.env.DEV) {
     }
   });
 
-  // Intercept unhandled promise rejections that might contain warnings
   window.addEventListener("unhandledrejection", (event) => {
     if (event.reason && isRechartsWarning(String(event.reason))) {
       event.preventDefault();
@@ -82,4 +61,12 @@ if (import.meta.env.DEV) {
   });
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </QueryClientProvider>
+  </React.StrictMode>
+);
