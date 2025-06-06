@@ -1,5 +1,3 @@
-// src/components/analytics/MetricsCard.tsx
-
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -51,8 +49,8 @@ export function MetricsCard({
     }
   };
 
-  // THIS IS THE LINE THAT WAS MISSING
-  const testId = `metrics-card-${title.toLowerCase().replace(/'/g, "").replace(/\s+/g, '-')}`;
+  // THIS IS THE CORRECTED LINE: It removes apostrophes and replaces spaces
+  const testId = `metrics-card-${title.toLowerCase().replace(/'/g, "").replace(/\s+/g, "-")}`;
 
   return (
     <Card className={className} data-testid={testId}>
