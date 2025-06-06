@@ -1,5 +1,4 @@
-// src/auth/AuthProvider.tsx
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { User } from '@/types';
 import * as api from '@/lib/api';
 import { supabase } from '@/lib/supabaseClient';
@@ -8,6 +7,8 @@ import { LoadingScreen } from '@/components/ui/loading';
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,25 +29,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       }
     };
-
     checkUserSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        setIsLoading(true);
         const currentUser = session ? await api.getCurrentUser() : null;
         setUser(currentUser);
         setIsLoading(false);
       }
     );
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
+    return () => authListener.subscription.unsubscribe();
   }, []);
 
-  const value = { user, isLoading };
+  const login = useCallback(async (email: string, password: string) => {
+    const loggedInUser = await api.apiLogin(email, password);
+    setUser(loggedInUser);
+  }, []);
 
-  // While the initial session is being checked, show a loading screen.
+  const logout = useCallback(async () => {
+    await api.apiLogout();
+    setUser(null);
+  }, []);
+
+  const value = { user, isLoading, login, logout };
+
   if (isLoading) {
     return <LoadingScreen message="Authenticating..." />;
   }
@@ -58,7 +65,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Custom hook to easily access the auth state from any component
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
