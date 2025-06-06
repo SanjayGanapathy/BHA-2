@@ -13,7 +13,7 @@ vi.mock('@/lib/api');
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: false,
+      retry: false, // Disable retries for tests
     },
   },
 });
@@ -45,7 +45,7 @@ describe('Dashboard Page', () => {
     vi.mocked(api.fetchSales).mockRejectedValue(new Error('Network Error'));
     vi.mocked(api.fetchProducts).mockResolvedValue(DEMO_PRODUCTS);
     renderDashboard();
-    
+
     await waitFor(() => {
       expect(screen.getByText(/Network Error/i)).toBeInTheDocument();
     });
@@ -59,8 +59,8 @@ describe('Dashboard Page', () => {
     const heading = await screen.findByRole('heading', { name: /dashboard/i });
     expect(heading).toBeInTheDocument();
     
-    // THE FIX: Use the correct test ID that gets generated from "Today's Revenue"
-    const revenueCard = await screen.findByTestId("metrics-card-todays-revenue");
+    // THE FIX: The test ID string now includes the apostrophe, matching the rendered output exactly.
+    const revenueCard = await screen.findByTestId("metrics-card-today's-revenue");
     
     const revenueValue = within(revenueCard).getByText('$4.50');
     expect(revenueValue).toBeInTheDocument();
