@@ -10,6 +10,8 @@ import { AnalyticsEngine } from "@/lib/analytics";
 import { fetchSales, fetchProducts } from "@/lib/api";
 import { LoadingScreen } from "@/components/ui/loading";
 import { Sale, Product } from "@/types";
+import { EmptyState } from '@/components/ui/empty-state';
+import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
   const { data: sales = [], isLoading: isLoadingSales } = useQuery<Sale[], Error>({
@@ -22,6 +24,24 @@ export default function Dashboard() {
     queryFn: fetchProducts,
   });
 
+  if (isLoadingSales || isLoadingProducts) {
+  return <LoadingScreen message="Loading dashboard data..." />;
+}
+
+// ADD THIS NEW LOGIC BLOCK
+if (sales.length === 0) {
+  return (
+    <POSLayout>
+      <EmptyState
+        Icon={ShoppingCart}
+        title="No Sales Data Yet"
+        description="Complete a transaction on the Sales Terminal page to see your dashboard."
+        actionText="Go to Sales Terminal"
+        actionLink="/pos"
+      />
+    </POSLayout>
+  );
+}
   const { salesAnalytics, businessMetrics, aiInsights } = useMemo(() => {
     if (!sales.length || !products.length) {
       return { salesAnalytics: null, businessMetrics: null, aiInsights: [] };
