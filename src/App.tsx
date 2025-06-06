@@ -1,10 +1,10 @@
 import React, { useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LoadingScreen } from "@/components/ui/loading";
 import { config } from "@/lib/config";
-import { getCurrentUser } from "@/lib/api"; // Updated 
-import { Toaster } from "@/components/ui/toaster"; 
+import { useAuth } from "./auth/AuthProvider";
+import { Toaster } from "@/components/ui/toaster";
 
 // Lazy load components for better performance
 const Dashboard = React.lazy(() => import("@/pages/Dashboard"));
@@ -17,55 +17,53 @@ const AIInsights = React.lazy(() => import("@/pages/AIInsights"));
 const Users = React.lazy(() => import("@/pages/Users"));
 const NotFound = React.lazy(() => import("@/pages/NotFound"));
 
-// Protected Route wrapper
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const currentUser = getCurrentUser(); // <-- UPDATE
-  if (!currentUser) {
+// Protected Route wrapper now uses the useAuth hook
+function ProtectedRoute() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <LoadingScreen message="Checking session..." />;
+  }
+
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
-  return <>{children}</>;
-}
-
-
-// Landing route wrapper
-function LandingRoute({ children }: { children: React.ReactNode }) {
-  const currentUser = getCurrentUser(); // <-- UPDATE
-  if (currentUser) {
-    return <Navigate to="/" replace />;
-  }
-  return <>{children}</>;
+  
+  // Renders the child route element
+  return <Outlet />;
 }
 
 function App() {
   useEffect(() => {
-    // Set up app metadata
     document.title = `${config.app.name} - ${config.app.description}`;
-
-    // Add theme color meta tag
-    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
-    if (themeColorMeta) {
-      themeColorMeta.setAttribute("content", config.ui.theme.primary);
-    }
-
-    // Performance monitoring (in production)
-    if (config.env.isProduction) {
-      // Add performance monitoring here
-      console.log(`${config.app.name} v${config.app.version} loaded`);
-    }
   }, []);
 
-   return (
+  return (
     <ErrorBoundary>
       <BrowserRouter>
-        <React.Suspense fallback={<LoadingScreen message="Loading..." />}>
+        <React.Suspense fallback={<LoadingScreen message="Loading page..." />}>
           <Routes>
-            {/* ... (Routes remain the same) ... */}
+            {/* Public Route */}
+            <Route path="/login" element={<Login />} />
+
+            {/* Protected Routes are now nested */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/pos" element={<POS />} />
+              <Route path="/products" element={<Products />} />
+              <Route path="/analytics" element={<Analytics />} />
+              <Route path="/ai-insights" element={<AIInsights />} />
+              <Route path="/users" element={<Users />} />
+            </Route>
+
+            {/* Catch-all route */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </React.Suspense>
-        <Toaster /> {/* <-- ADD TOASTER */}
+        <Toaster />
       </BrowserRouter>
     </ErrorBoundary>
   );
 }
 
-export default App; 
+export default App;

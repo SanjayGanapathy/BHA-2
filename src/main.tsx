@@ -1,10 +1,6 @@
-// src/main.tsx
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-const queryClient = new QueryClient();
 
 // Comprehensive warning suppression for Recharts defaultProps warnings
 if (import.meta.env.DEV) {
@@ -86,8 +82,4 @@ if (import.meta.env.DEV) {
   });
 }
 
-createRoot(document.getElementById("root")!).render(
-  <QueryClientProvider client={queryClient}>
-    <App />
-  </QueryClientProvider>
-);
+createRoot(document.getElementById("root")!).render(<App />);
