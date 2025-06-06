@@ -1,6 +1,5 @@
 import { Product, Sale, User, CartItem } from "@/types";
 import { supabase } from './supabaseClient';
-import { config } from "./config";
 
 // --- Helper Functions ---
 
