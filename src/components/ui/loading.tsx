@@ -137,12 +137,10 @@ export function LoadingCard({
   );
 }
 
-interface LoadingButtonProps {
+interface LoadingButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   isLoading: boolean;
   children: React.ReactNode;
   loadingText?: string;
-  className?: string;
-  [key: string]: any;
 }
 
 export function LoadingButton({

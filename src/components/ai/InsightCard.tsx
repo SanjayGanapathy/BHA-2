@@ -101,7 +101,7 @@ export function InsightCard({ insight, className }: InsightCardProps) {
             <div className="space-y-1">
               {insight.data.items
                 .slice(0, 3)
-                .map((item: any, index: number) => (
+                .map((item: { name: string; stock: number }, index: number) => (
                   <div key={index} className="text-xs flex justify-between">
                     <span>{item.name}</span>
                     <span className="text-red-600">{item.stock} left</span>

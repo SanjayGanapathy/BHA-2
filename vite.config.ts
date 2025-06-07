@@ -17,9 +17,18 @@ export default defineConfig({
     open: false,
   },
   build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
     target: "esnext",
-    minify: "esbuild",
+    minify: "terser",
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    },
     sourcemap: false,
+    cssCodeSplit: true,
   },
   test: {
     globals: true,

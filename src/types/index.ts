@@ -1,28 +1,44 @@
-export interface Product {
+export type Product = {
   id: string;
+  created_at: string;
   name: string;
+  description: string | null;
   price: number;
-  category: string;
+  cost: number | null;
+  category: string | null;
+  sku: string | null;
+  barcode: string | null;
   stock: number;
-  image?: string;
-  description?: string;
-  cost: number; // For profit calculation
-}
+  image_url: string | null;
+};
 
-export interface CartItem {
-  product: Product;
-  quantity: number;
-}
-
-export interface Sale {
+export type SaleItem = {
   id: string;
-  items: CartItem[];
+  sale_id: string;
+  product_id: string;
+  quantity: number;
+  price_at_sale: number;
+  products: Product; // For nested queries
+};
+
+export type Sale = {
+  id: string;
+  created_at: string;
+  user_id: string | null;
   total: number;
   profit: number;
+  payment_method: string | null;
+  sale_items: SaleItem[];
+};
+
+export type AIInsight = {
+  id: string;
+  title: string;
+  description: string;
+  impact: 'low' | 'medium' | 'high';
+  type: 'recommendation' | 'observation' | 'alert';
   timestamp: Date;
-  userId: string;
-  paymentMethod: string;
-}
+};
 
 export interface User {
   id: string;
@@ -30,7 +46,7 @@ export interface User {
   role: "admin" | "cashier" | "manager";
   name: string;
   email: string;
-  isActive: boolean;
+  is_active: boolean;
 }
 
 export interface SalesAnalytics {
@@ -48,16 +64,6 @@ export interface SalesAnalytics {
     sales: number;
     transactions: number;
   }>;
-}
-
-export interface AIInsight {
-  id: string;
-  type: "recommendation" | "observation" | "forecast" | "alert";
-  title: string;
-  description: string;
-  impact: "high" | "medium" | "low";
-  timestamp: Date;
-  data?: any;
 }
 
 export interface BusinessMetrics {

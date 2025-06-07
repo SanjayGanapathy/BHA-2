@@ -13,7 +13,7 @@ import { useToast } from "@/components/ui/use-toast";
 
 // Corrected import paths
 import { useLocalStorageState } from "@/hooks/useLocalStorageState";
-import { LoadingScreen, LoadingSpinner } from "@/components/ui/loading";
+import { LoadingScreen } from "@/components/ui/loading";
 
 export default function POS() {
   const { toast } = useToast();
@@ -24,7 +24,7 @@ export default function POS() {
     queryFn: fetchProducts,
   });
 
-  const [cart, setCart] = useLocalStorageState<CartItem[]>('shoppingCart', []);
+  const [cart, setCart] = useLocalStorageState<CartItem[]>([], "pos:cart");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [saleComplete, setSaleComplete] = useState(false);
@@ -57,17 +57,18 @@ export default function POS() {
     if (product.stock === 0) return;
     setSaleComplete(false);
     setCart((currentCart) => {
-      const existingItem = currentCart.find((item) => item.product.id === product.id);
+      const safeCart = Array.isArray(currentCart) ? currentCart : [];
+      const existingItem = safeCart.find((item) => item.product.id === product.id);
       if (existingItem) {
         if (existingItem.quantity >= product.stock) {
           toast({ title: "Stock Limit Reached", description: `Only ${product.stock} units of ${product.name} are available.`});
-          return currentCart;
+          return safeCart;
         }
-        return currentCart.map((item) =>
+        return safeCart.map((item) =>
           item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
-      return [...currentCart, { product, quantity: 1 }];
+      return [...safeCart, { product, quantity: 1 }];
     });
   };
 
@@ -76,15 +77,19 @@ export default function POS() {
       removeFromCart(productId);
       return;
     }
-    setCart((currentCart) =>
-      currentCart.map((item) =>
+    setCart((currentCart) => {
+      const safeCart = Array.isArray(currentCart) ? currentCart : [];
+      return safeCart.map((item) =>
         item.product.id === productId ? { ...item, quantity } : item
       )
-    );
+    });
   };
 
   const removeFromCart = (productId: string) => {
-    setCart((currentCart) => currentCart.filter((item) => item.product.id !== productId));
+    setCart((currentCart) => {
+      const safeCart = Array.isArray(currentCart) ? currentCart : [];
+      return safeCart.filter((item) => item.product.id !== productId)
+    });
   };
   
   const clearCart = () => {

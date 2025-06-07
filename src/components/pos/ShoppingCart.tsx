@@ -24,13 +24,15 @@ export function ShoppingCart({
   onClear,
   className,
 }: ShoppingCartProps) {
-  const subtotal = items.reduce(
+  const safeItems = Array.isArray(items) ? items : [];
+
+  const subtotal = safeItems.reduce(
     (sum, item) => sum + item.product.price * item.quantity,
     0,
   );
   const tax = subtotal * 0.08; // 8% tax rate
   const total = subtotal + tax;
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+  const totalItems = safeItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <Card className={cn("flex flex-col h-full", className)}>
@@ -47,7 +49,7 @@ export function ShoppingCart({
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col">
-        {items.length === 0 ? (
+        {safeItems.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-center">
             <div className="text-muted-foreground">
               <CartIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -59,7 +61,7 @@ export function ShoppingCart({
           <>
             {/* Cart Items */}
             <div className="flex-1 space-y-3 mb-4 overflow-y-auto">
-              {items.map((item) => (
+              {safeItems.map((item) => (
                 <div key={item.product.id} className="border rounded-lg p-3">
                   <div className="flex items-start gap-3">
                     <div className="flex-1">

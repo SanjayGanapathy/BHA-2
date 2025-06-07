@@ -100,7 +100,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 Something went wrong
               </CardTitle>
               <p className="text-muted-foreground mt-2">
-                We're sorry for the inconvenience. An unexpected error has
+                We&apos;re sorry for the inconvenience. An unexpected error has
                 occurred.
               </p>
             </CardHeader>
@@ -160,7 +160,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
 // Hook for functional components to handle errors
 export const useErrorHandler = () => {
-  const handleError = (error: Error, errorInfo?: any) => {
+  const handleError = (error: Error, errorInfo?: React.ErrorInfo) => {
     if (config.env.isDevelopment) {
       console.error("Handled error:", error, errorInfo);
     }

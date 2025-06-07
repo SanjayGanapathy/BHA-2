@@ -1,9 +1,11 @@
 import React, { useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, ShoppingCart, Package, BarChart3, Brain, Users, LogOut, Target } from "lucide-react";
+import { LayoutDashboard, ShoppingCart, Package, BarChart3, Brain, Users, Target, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/auth/AuthProvider";
+import { useAuth } from "@/auth/useAuth";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { CircleUser, Menu, Package2, Search } from "lucide-react";
 
 const allNavigationItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard", roles: ["admin", "manager", "cashier"] },

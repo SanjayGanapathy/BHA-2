@@ -1,121 +1,291 @@
-import React, { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Link } from 'react-router-dom';
-import { POSLayout } from "@/components/layout/POSLayout";
-import { MetricsCard } from "@/components/analytics/MetricsCard";
-import { SalesChart } from "@/components/analytics/SalesChart";
-import { InsightCard } from "@/components/ai/InsightCard";
+import React, { useRef, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { DollarSign, TrendingUp, ShoppingCart, Users, Package, AlertTriangle } from "lucide-react";
-import { AnalyticsEngine } from "@/lib/analytics";
-import { fetchSales, fetchProducts } from "@/lib/api";
-import { LoadingScreen } from "@/components/ui/loading";
-import { Sale, Product } from "@/types";
-import { EmptyState } from "@/components/ui/empty-state";
+import { Button } from "@/components/ui/button";
+import { DollarSign, Package, Users, BarChart3, Brain, AlertCircle, Calendar as CalendarIcon } from "lucide-react";
+import { InsightCard } from "@/components/ai/InsightCard";
+import { getDashboardInsights } from "@/lib/gemini";
+import { useQuery } from "@tanstack/react-query";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/lib/supabaseClient";
+import { useReactToPrint } from 'react-to-print';
+import { ZReport } from '@/components/reports/ZReport';
+import { Sale } from "@/types";
+import { DateRange } from "react-day-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format, subDays } from "date-fns";
+import { cn } from "@/lib/utils";
+
+// Function to fetch and compute quick stats
+async function getQuickStats() {
+  const today = new Date();
+  const twentyFourHoursAgo = new Date(today.getTime() - 24 * 60 * 60 * 1000).toISOString();
+
+  // Fetch sales from the last 24 hours
+  const { data: sales, error: salesError } = await supabase
+    .from('sales')
+    .select('total, sale_items(quantity)')
+    .gte('created_at', twentyFourHoursAgo);
+
+  if (salesError) throw new Error(salesError.message);
+
+  // Fetch new users from the last 24 hours
+  const { count: newUsers, error: usersError } = await supabase
+    .from('users')
+    .select('*', { count: 'exact', head: true })
+    .gte('created_at', twentyFourHoursAgo);
+
+  if (usersError) throw new Error(usersError.message);
+
+  // Calculate stats
+  const revenue = sales.reduce((acc, sale) => acc + sale.total, 0);
+  const productsSold = sales.reduce((acc, sale) => acc + sale.sale_items.reduce((itemAcc, item) => itemAcc + item.quantity, 0), 0);
+  const avgSale = sales.length > 0 ? revenue / sales.length : 0;
+
+  return [
+    { title: "Today's Revenue", value: `$${revenue.toFixed(2)}`, icon: DollarSign },
+    { title: "Products Sold", value: productsSold.toString(), icon: Package },
+    { title: "New Customers", value: newUsers?.toString() || '0', icon: Users },
+    { title: "Avg. Sale Value", value: `$${avgSale.toFixed(2)}`, icon: BarChart3 },
+  ];
+}
+
+async function getZReportData(dateRange: DateRange): Promise<Sale[]> {
+  const from = dateRange.from ? new Date(dateRange.from) : subDays(new Date(), 1);
+  from.setHours(0, 0, 0, 0);
+
+  const to = dateRange.to ? new Date(dateRange.to) : new Date();
+  to.setHours(23, 59, 59, 999);
+
+  const { data, error } = await supabase
+    .from('sales')
+    .select(`
+      *,
+      sale_items (
+        quantity,
+        products (
+          *
+        )
+      )
+    `)
+    .gte('created_at', from.toISOString())
+    .lte('created_at', to.toISOString())
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error("Error fetching Z-report data:", error);
+    throw new Error(error.message);
+  }
+  
+  return data || [];
+}
 
 export default function Dashboard() {
-  const { data: sales = [], isLoading: isLoadingSales, isError: isErrorSales, error: salesError } = useQuery<Sale[], Error>({
-    queryKey: ["sales"],
-    queryFn: fetchSales,
-  });
-  
-  const { data: products = [], isLoading: isLoadingProducts, isError: isErrorProducts, error: productsError } = useQuery<Product[], Error>({
-    queryKey: ["products"],
-    queryFn: fetchProducts,
+  const navigate = useNavigate();
+  const reportRef = useRef<HTMLDivElement>(null);
+  const [reportData, setReportData] = useState<Sale[] | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  const [date, setDate] = useState<DateRange>({
+    from: subDays(new Date(), 1),
+    to: new Date(),
   });
 
-  const { salesAnalytics, businessMetrics, aiInsights } = useMemo(() => {
-    if (!sales || !products || sales.length === 0 || products.length === 0) {
-      return { salesAnalytics: null, businessMetrics: null, aiInsights: [] };
+  const handlePrint = useReactToPrint({
+    content: () => reportRef.current,
+    onBeforeGetContent: () => setIsPrinting(true),
+    onAfterPrint: () => {
+      setIsPrinting(false);
+      setReportData(null); 
+    },
+  });
+
+  const handleExportClick = async () => {
+    try {
+      if (!date.from || !date.to) {
+        console.error("Date range is not selected.");
+        // You might want to show a toast notification here
+        return;
+      }
+      const data = await getZReportData(date);
+      setReportData(data);
+    } catch (error) {
+      console.error("Failed to generate Z-report:", error);
+      // You might want to show a toast notification to the user here
     }
-    const metrics = AnalyticsEngine.calculateBusinessMetrics(sales, products);
-    return {
-      salesAnalytics: AnalyticsEngine.calculateSalesAnalytics(sales, "day"),
-      businessMetrics: metrics,
-      aiInsights: AnalyticsEngine.generateAIInsights(metrics),
-    };
-  }, [sales, products]);
+  };
 
-  if (isLoadingSales || isLoadingProducts) {
-    return <LoadingScreen message="Loading dashboard data..." />;
-  }
+  useEffect(() => {
+    if (reportData) {
+      handlePrint();
+    }
+  }, [reportData, handlePrint]);
 
-  if (isErrorSales || isErrorProducts) {
-    const error = salesError || productsError;
-    return (
-      <POSLayout>
-        <div className="p-4 text-center text-red-500">
-          <h2 className="text-xl font-bold">Error Loading Dashboard</h2>
-          <p>{error?.message || "An unknown error occurred."}</p>
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome back! Here&apos;s a summary of your business.
+          </p>
         </div>
-      </POSLayout>
+        <div className="flex items-center space-x-2">
+           <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                id="date"
+                variant={"outline"}
+                className={cn(
+                  "w-[300px] justify-start text-left font-normal",
+                  !date && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {date?.from ? (
+                  date.to ? (
+                    <>
+                      {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
+                    </>
+                  ) : (
+                    format(date.from, "LLL dd, y")
+                  )
+                ) : (
+                  <span>Pick a date range</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={date?.from}
+                selected={date}
+                onSelect={(newDate) => setDate(newDate || date)}
+                numberOfMonths={2}
+              />
+            </PopoverContent>
+          </Popover>
+          <Button variant="outline" onClick={handleExportClick}>Generate Z-Report</Button>
+          <Button onClick={() => navigate('/pos')}>Create Sale</Button>
+        </div>
+      </div>
+
+      <DashboardQuickStats />
+
+      <div className="mt-8">
+        <h2 className="text-2xl font-bold tracking-tight mb-4 flex items-center gap-2">
+          <Brain className="h-6 w-6 text-primary" />
+          AI-Powered Insights
+        </h2>
+        <DashboardAIInsights />
+      </div>
+
+      <div className={isPrinting ? "print-mount" : "hidden"}>
+          <ZReport ref={reportRef} reportData={reportData || []} reportDateRange={date} />
+      </div>
+    </div>
+  );
+}
+
+function DashboardQuickStats() {
+  const { data: stats, isLoading, isError } = useQuery({
+    queryKey: ['dashboardQuickStats'],
+    queryFn: getQuickStats,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {[...Array(4)].map((_, i) => (
+          <Card key={i}>
+            <CardHeader>
+              <Skeleton className="h-4 w-2/3" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-8 w-1/2 mb-2" />
+              <Skeleton className="h-3 w-1/3" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     );
   }
-  
-  if (sales.length === 0) {
-      return (
-        <POSLayout>
-          <EmptyState
-            Icon={ShoppingCart}
-            title="No Sales Data Yet"
-            description="Complete a transaction on the Sales Terminal page to see your dashboard."
-            actionText="Go to Sales Terminal"
-            actionLink="/pos"
-          />
-        </POSLayout>
-      );
+
+  if (isError) {
+    return (
+       <div className="bg-destructive/10 text-destructive p-4 rounded-lg col-span-4">
+        Failed to load quick stats.
+      </div>
+    )
   }
 
   return (
-    <POSLayout>
-      <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-blue-900">
-            Dashboard
-          </h1>
-          <p className="text-muted-foreground">
-            Welcome back! Here's what's happening with your business today.
-          </p>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <MetricsCard title="Today's Revenue" value={`$${salesAnalytics?.totalSales.toFixed(2) || "0.00"}`} trend={{ value: businessMetrics?.growth || 0, direction: (businessMetrics?.growth || 0) >= 0 ? "up" : "down", period: "vs yesterday" }} icon={<DollarSign className="h-4 w-4" />} />
-          <MetricsCard title="Today's Profit" value={`$${salesAnalytics?.totalProfit.toFixed(2) || "0.00"}`} icon={<TrendingUp className="h-4 w-4" />} />
-          <MetricsCard title="Transactions" value={salesAnalytics?.totalTransactions || 0} description="Today" icon={<ShoppingCart className="h-4 w-4" />} />
-          <MetricsCard title="Average Ticket" value={`$${salesAnalytics?.averageTicket.toFixed(2) || "0.00"}`} description="Per transaction" icon={<Users className="h-4 w-4" />} />
-        </div>
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      {stats?.map((stat) => (
+        <Card key={stat.title}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+            <stat.icon className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stat.value}</div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {salesAnalytics && <SalesChart data={salesAnalytics.dailySales} title="Today's Sales Trend" type="line" />}
-          <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><Package className="h-5 w-5" />Top Products Today</CardTitle></CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {salesAnalytics?.topProducts && salesAnalytics.topProducts.length > 0 ? (
-                  salesAnalytics.topProducts.map((item, index) => (
-                    <div key={item.product.id} className="flex items-center justify-between">
-                      <div><p className="font-medium text-sm">{index + 1}. {item.product.name}</p><p className="text-xs text-muted-foreground">{item.quantitySold} sold</p></div>
-                      <p className="font-medium text-sm">${item.revenue.toFixed(2)}</p>
-                    </div>
-                  ))
-                ) : (<p className="text-sm text-muted-foreground text-center py-4">No sales data for today.</p>)}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+function DashboardAIInsights() {
+  const { data: insights, isLoading, isError, error } = useQuery({
+    queryKey: ['dashboardInsights'],
+    queryFn: getDashboardInsights,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: false,
+  });
 
+  if (isLoading) {
+    return (
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <Skeleton className="h-40" />
+        <Skeleton className="h-40" />
+        <Skeleton className="h-40" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="bg-destructive/10 border border-destructive/20 text-destructive p-4 rounded-lg flex items-center gap-4">
+        <AlertCircle className="h-6 w-6" />
         <div>
-          <h2 className="text-xl font-semibold mb-4">AI Insights</h2>
-          {aiInsights.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {aiInsights.map((insight) => <InsightCard key={insight.id} insight={insight} />)}
-            </div>
-          ) : (
-            <Card><CardContent className="p-6 text-center"><AlertTriangle className="h-12 w-12 mx-auto mb-3 text-muted-foreground" /><p className="text-muted-foreground">No insights available yet.</p></CardContent></Card>
-          )}
+          <h3 className="font-bold">Failed to load AI Insights</h3>
+          <p className="text-sm">{error instanceof Error ? error.message : "An unknown error occurred."}</p>
         </div>
       </div>
-    </POSLayout>
+    )
+  }
+
+  if (!insights || insights.length === 0) {
+     return (
+      <div className="bg-muted/50 border text-muted-foreground p-4 rounded-lg flex items-center gap-4">
+        <AlertCircle className="h-6 w-6" />
+        <div>
+          <h3 className="font-bold">No Insights Available</h3>
+          <p className="text-sm">The AI could not generate any insights at this time. Please check back later.</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {insights.map((insight) => (
+        <InsightCard key={insight.id} insight={insight} />
+      ))}
+    </div>
   );
 }

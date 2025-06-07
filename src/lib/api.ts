@@ -1,6 +1,5 @@
 import { Product, Sale, User, CartItem } from "@/types";
 import { supabase } from './supabaseClient'; // Import our Supabase client
-import { config } from "./config";
 
 // --- Authentication API (Now using Supabase Auth) ---
 
@@ -42,14 +41,30 @@ export const apiLogout = async () => {
  * Gets the current user's session and profile data. Returns null if not logged in.
  */
 export const getCurrentUser = async (): Promise<User | null> => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return null;
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    const { data: userData, error } = await supabase.from('users').select('*').eq('id', session.user.id).single();
-    if (error) {
-        console.error("Error fetching user profile:", error);
-        return null;
+    if (sessionError) {
+      console.error("Error getting session:", sessionError);
+      throw sessionError;
     }
+
+    if (!session) {
+      return null;
+    }
+    
+    const { data: userData, error: profileError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', session.user.id)
+      .single();
+
+    // If there's an error fetching the profile (e.g., RLS error, user not in table),
+    // we must throw it so the AuthProvider can catch it and handle logout.
+    if (profileError) {
+        console.error("Error fetching user profile:", profileError);
+        throw profileError;
+    }
+
     return userData;
 };
 
@@ -121,41 +136,76 @@ export const addUser = async (userData: Omit<User, 'id'> & {password: string}): 
         .select()
         .single();
     
-    if (profileError) throw profileError;
+    if (profileError) {
+      console.error("Error creating user profile:", profileError);
+      // We should also delete the user from auth if the profile creation fails
+      // This is complex client-side, another reason to use a serverless function.
+      throw new Error(`Database error saving new user: ${profileError.message}`);
+    }
     return profileData;
 }
 
+export const deleteUser = async (userId: string): Promise<{ id: string }> => {
+  // Note: This only deletes the user from the 'users' table, not from Supabase Auth.
+  // A secure implementation would use a server-side function with admin privileges.
+  const { error } = await supabase.from('users').delete().eq('id', userId);
+  if (error) throw error;
+  return { id: userId };
+};
 
 // --- Sales API ---
 
-export const fetchSales = async (): Promise<Sale[]> => {
-  const { data, error } = await supabase.from('sales').select('*, sale_items(*, products(*))');
+export const fetchSales = async (dateRange?: { from: string | Date; to: string | Date }): Promise<Sale[]> => {
+  let query = supabase.from('sales').select('*, sale_items(*, products(*))');
+
+  if (dateRange?.from) {
+    // Set time to the beginning of the day
+    const fromDate = new Date(dateRange.from);
+    fromDate.setHours(0, 0, 0, 0);
+    query = query.gte('created_at', fromDate.toISOString());
+  }
+  if (dateRange?.to) {
+    // Set time to the end of the day
+    const toDate = new Date(dateRange.to);
+    toDate.setHours(23, 59, 59, 999);
+    query = query.lte('created_at', toDate.toISOString());
+  }
+  
+  const { data, error } = await query.order('created_at', { ascending: false });
+
   if (error) throw error;
-  return (data as any[]) || [];
+  return (data as Sale[]) || [];
 };
 
 export const createSale = async (items: CartItem[]): Promise<Sale> => {
-    // NOTE: This should be a single database transaction using an RPC function in Supabase for production.
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Must be logged in to create a sale.");
-    
-    const total = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-    const profit = items.reduce((sum, item) => sum + (item.product.price - item.product.cost) * item.quantity, 0);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Must be logged in to create a sale.");
 
-    const { data: saleData, error: saleError } = await supabase.from('sales').insert({ user_id: user.id, total, profit }).select().single();
-    if (saleError) throw saleError;
-    if (!saleData) throw new Error("Failed to create sale record.");
+  const saleItems = items.map(item => ({
+    product_id: item.product.id,
+    quantity: item.quantity,
+  }));
 
-    const saleItemsData = items.map(item => ({
-      sale_id: saleData.id,
-      product_id: item.product.id,
-      quantity: item.quantity,
-      price_at_sale: item.product.price,
-    }));
-    const { error: itemsError } = await supabase.from('sale_items').insert(saleItemsData);
-    if (itemsError) {
-        await supabase.from('sales').delete().eq('id', saleData.id); // Attempt to roll back
-        throw itemsError;
-    }
-    return saleData;
+  const { data, error } = await supabase.rpc('create_new_sale', {
+    sale_items: saleItems
+  });
+
+  if (error) {
+    console.error("Error calling create_new_sale RPC:", error);
+    throw error;
+  }
+  
+  // The RPC returns the new sale's ID. We need to fetch the full sale data.
+  const { data: newSale, error: fetchError } = await supabase
+    .from('sales')
+    .select('*, sale_items(*, products(*))')
+    .eq('id', data)
+    .single();
+
+  if (fetchError) {
+    console.error("Error fetching new sale after creation:", fetchError);
+    throw fetchError;
+  }
+
+  return newSale as Sale;
 };

@@ -1,74 +1,70 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { useState, useEffect, ReactNode } from 'react';
 import { User } from '@/types';
 import * as api from '@/lib/api';
 import { supabase } from '@/lib/supabaseClient';
 import { LoadingScreen } from '@/components/ui/loading';
-
-interface AuthContextType {
-  user: User | null;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import { Session } from '@supabase/supabase-js';
+import { AuthContext } from './AuthContext';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
 
+  // This effect hook handles listening for auth changes (login/logout)
   useEffect(() => {
-    const checkUserSession = async () => {
-      try {
-        const currentUser = await api.getCurrentUser();
-        setUser(currentUser);
-      } catch (error) {
-        console.error("Failed to fetch user session:", error);
-        setUser(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    checkUserSession();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setIsLoading(true);
-        const currentUser = session ? await api.getCurrentUser() : null;
-        setUser(currentUser);
-        setIsLoading(false);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+        // If the user logs out, ensure their profile data is cleared.
+        if (!session) {
+          setUser(null);
+        }
+        // This is the critical part: we stop the initial loading screen
+        // as soon as we know whether a session exists or not.
+        setInitialLoading(false);
       }
     );
-    return () => authListener.subscription.unsubscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const loggedInUser = await api.apiLogin(email, password);
-    setUser(loggedInUser);
-  }, []);
+  // This second, separate effect hook is responsible for fetching the detailed
+  // user profile from the database *after* we know a session exists.
+  useEffect(() => {
+    // We only run this if a session exists and we don't already have the user profile.
+    if (session && !user) {
+      api.getCurrentUser()
+        .then((userProfile) => {
+          setUser(userProfile);
+        })
+        .catch(async (error) => {
+          console.error("Failed to fetch user profile for a valid session. Logging out.", error);
+          // If the profile fetch fails, the session is corrupt/invalid. Force a logout.
+          await api.apiLogout();
+          setSession(null);
+          setUser(null);
+        });
+    }
+  }, [session, user]);
 
-  const logout = useCallback(async () => {
+  const login = async (email: string, password: string) => {
+    await api.apiLogin(email, password);
+  };
+
+  const logout = async () => {
     await api.apiLogout();
-    setUser(null);
-  }, []);
+  };
+  
+  const value = { user, session, isLoading: initialLoading, login, logout };
 
-  const value = { user, isLoading, login, logout };
-
-  if (isLoading) {
-    return <LoadingScreen message="Authenticating..." />;
-  }
-
+  // The app's children are only blocked by the `initialLoading` state.
+  // The `ProtectedRoute` will handle the secondary loading state for the user profile.
   return (
     <AuthContext.Provider value={value}>
-      {children}
+      {initialLoading ? <LoadingScreen message="Initializing..." /> : children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 }

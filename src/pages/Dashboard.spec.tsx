@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Dashboard from './Dashboard';
 import * as api from '@/lib/api';
 import { DEMO_PRODUCTS, DEMO_SALES } from '@/lib/demo-data';
+import { AuthProvider } from '@/auth/AuthProvider';
 
 // Mock the entire api module
 vi.mock('@/lib/api');
@@ -26,7 +27,9 @@ describe('Dashboard Page', () => {
     render(
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <Dashboard />
+          <AuthProvider>
+            <Dashboard />
+          </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>
     );
@@ -41,7 +44,7 @@ describe('Dashboard Page', () => {
     vi.mocked(api.fetchSales).mockReturnValue(new Promise(() => {}));
     vi.mocked(api.fetchProducts).mockReturnValue(new Promise(() => {}));
     renderDashboard();
-    expect(screen.getByText(/loading dashboard data/i)).toBeInTheDocument();
+    expect(screen.getByText(/Initializing.../i)).toBeInTheDocument();
   });
 
   it('should display an error message if fetching sales fails', async () => {

@@ -96,7 +96,7 @@ export const config = {
 
 // Helper functions
 export const getConfig = (path: string) => {
-  return path.split(".").reduce((obj: any, key) => obj?.[key], config);
+  return path.split(".").reduce((obj: Record<string, unknown>, key) => obj?.[key], config);
 };
 
 export const isFeatureEnabled = (feature: keyof typeof config.features) => {

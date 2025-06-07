@@ -3,38 +3,48 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { POSLayout } from "@/components/layout/POSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Package, Edit, AlertTriangle, TrendingDown, Trash2 } from "lucide-react";
+import {
+  Package,
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Archive,
+} from "lucide-react";
 import { fetchProducts, addProduct, updateProduct, deleteProduct } from "@/lib/api";
 import { Product } from "@/types";
-import { cn } from "@/lib/utils";
-import { LoadingScreen, LoadingSpinner } from "@/components/ui/loading";
 import { useToast } from "@/components/ui/use-toast";
-import { config } from "@/lib/config";
+import { LoadingScreen, LoadingSpinner } from "@/components/ui/loading";
+import { formatCurrency } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 const productSchema = z.object({
-  name: z.string().min(3, { message: "Name must be at least 3 characters." }),
-  category: z.string().min(2, { message: "Category is required." }),
-  price: z.coerce.number().positive({ message: "Price must be a positive number." }),
-  cost: z.coerce.number().nonnegative({ message: "Cost cannot be negative." }),
-  stock: z.coerce.number().int().nonnegative({ message: "Stock must be a whole number." }),
+  name: z.string().min(2, "Product name is required."),
+  category: z.string().min(2, "Category is required."),
+  price: z.coerce.number().min(0, "Price must be a positive number."),
+  cost: z.coerce.number().min(0, "Cost must be a positive number."),
+  stock: z.coerce.number().int().min(0, "Stock must be a non-negative integer."),
   description: z.string().optional(),
 });
-type ProductFormData = z.infer<typeof productSchema>;
 
-const getStockStatus = (stock: number) => {
-  if (stock === 0) return { label: "Out of Stock", color: "text-red-600 bg-red-50 border-red-200" };
-  if (stock < config.business.lowStockThreshold) return { label: "Low Stock", color: "text-orange-600 bg-orange-50 border-orange-200" };
-  return { label: "In Stock", color: "text-green-600 bg-green-50 border-green-200" };
-};
+type ProductFormData = z.infer<typeof productSchema>;
 
 export default function Products() {
   const { toast } = useToast();
@@ -46,167 +56,204 @@ export default function Products() {
   });
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
   });
-  
+
   useEffect(() => {
-    if (isAddDialogOpen) {
+    if (isDialogOpen) {
       if (editingProduct) {
         reset(editingProduct);
       } else {
         reset({ name: "", category: "", price: 0, cost: 0, stock: 0, description: "" });
       }
     } else {
-        setEditingProduct(null);
+      setEditingProduct(null);
     }
-  }, [isAddDialogOpen, editingProduct, reset]);
+  }, [isDialogOpen, editingProduct, reset]);
 
   const productMutation = useMutation({
-    mutationFn: (data: { productData: ProductFormData; id?: string }) => 
-      data.id ? updateProduct({ ...data.productData, id: data.id }) : addProduct(data.productData),
-    onSuccess: (_, variables) => {
-      toast({ title: "Success!", description: `Product has been ${variables.id ? "updated" : "added"}.` });
+    mutationFn: (formData: ProductFormData) => {
+      if (editingProduct) {
+        const productData = { ...formData, id: editingProduct.id };
+        return updateProduct(productData);
+      } else {
+        return addProduct(formData);
+      }
+    },
+    onSuccess: () => {
+      toast({ title: "Success!", description: `Product has been ${editingProduct ? "updated" : "added"}.` });
       queryClient.invalidateQueries({ queryKey: ["products"] });
-      setIsAddDialogOpen(false);
+      setIsDialogOpen(false);
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
-
-  const productDeleteMutation = useMutation({
-    mutationFn: deleteProduct,
+  
+  const deleteMutation = useMutation({
+    mutationFn: (productId: string) => deleteProduct(productId),
     onSuccess: () => {
-      toast({ title: "Product Deleted", description: `"${deletingProduct?.name}" has been removed.` });
+      toast({ title: "Product Deleted", description: "The product has been successfully removed." });
       queryClient.invalidateQueries({ queryKey: ["products"] });
-      setIsDeleteDialogOpen(false);
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const onSubmit = (data: ProductFormData) => {
-    productMutation.mutate({ productData: data, id: editingProduct?.id });
+    productMutation.mutate(data);
   };
 
-  const handleDeleteClick = (product: Product) => {
-    setDeletingProduct(product);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = () => {
-    if (deletingProduct) {
-      productDeleteMutation.mutate(deletingProduct.id);
-    }
-  };
-
-  const stats = useMemo(() => ({
-    lowStockProducts: products.filter(p => p.stock > 0 && p.stock < config.business.lowStockThreshold),
-    outOfStockProducts: products.filter(p => p.stock === 0),
-    totalValue: products.reduce((sum, p) => sum + p.price * p.stock, 0),
-    totalCost: products.reduce((sum, p) => sum + p.cost * p.stock, 0),
-  }), [products]);
+  const stats = useMemo(() => {
+    const totalProducts = products.length;
+    const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
+    const lowStockCount = products.filter(p => p.stock < 10).length;
+    return { totalProducts, totalStock, lowStockCount };
+  }, [products]);
   
   const filteredProducts = useMemo(() =>
-    products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.category.toLowerCase().includes(searchTerm.toLowerCase())),
+    products.filter(p => 
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      p.category.toLowerCase().includes(searchTerm.toLowerCase())
+    ),
   [products, searchTerm]);
 
   if (isLoading) return <LoadingScreen message="Loading products..." />;
   if (isError) return <div className="p-4 text-red-500">Error: {error.message}</div>;
 
   return (
-    <POSLayout>
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div><h1 className="text-3xl font-bold tracking-tight text-blue-900">Product Management</h1><p className="text-muted-foreground">Manage your inventory and product catalog</p></div>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}><DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" />Add Product</Button></DialogTrigger>
-            <DialogContent><DialogHeader><DialogTitle>{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle><DialogDescription>{editingProduct ? "Update this product's information." : "Add a new product to your inventory."}</DialogDescription></DialogHeader>
-<form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-  <fieldset disabled={productMutation.isPending}>
-    <div className="grid grid-cols-2 gap-4">
-      <div>
-        <Label htmlFor="name">Product Name</Label>
-        <Input id="name" {...register("name")} />
-        <p className="text-sm text-red-500 mt-1 h-4">{errors.name?.message}</p>
-      </div>
-      <div>
-        <Label htmlFor="category">Category</Label>
-        <Input id="category" {...register("category")} />
-        <p className="text-sm text-red-500 mt-1 h-4">{errors.category?.message}</p>
-      </div>
-    </div>
-    <div className="grid grid-cols-3 gap-4">
-      <div>
-        <Label htmlFor="price">Price ($)</Label>
-        <Input id="price" type="number" step="0.01" {...register("price")} />
-        <p className="text-sm text-red-500 mt-1 h-4">{errors.price?.message}</p>
-      </div>
-      <div>
-        <Label htmlFor="cost">Cost ($)</Label>
-        <Input id="cost" type="number" step="0.01" {...register("cost")} />
-        <p className="text-sm text-red-500 mt-1 h-4">{errors.cost?.message}</p>
-      </div>
-      <div>
-        <Label htmlFor="stock">Stock</Label>
-        <Input id="stock" type="number" {...register("stock")} />
-        <p className="text-sm text-red-500 mt-1 h-4">{errors.stock?.message}</p>
-      </div>
-    </div>
-    <div>
-      <Label htmlFor="description">Description</Label>
-      <Input id="description" {...register("description")} />
-    </div>
-  </fieldset>
-  <div className="flex gap-2 pt-2">
-      <Button type="submit" className="flex-1" disabled={productMutation.isPending}>
-        {productMutation.isPending ? <LoadingSpinner size="sm"/> : "Save Product"}
-      </Button>
-      <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-  </div>
-</form>
-            </DialogContent>
-          </Dialog>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+            <h1 className="text-3xl font-bold tracking-tight text-blue-900">Product Management</h1>
+            <p className="text-muted-foreground">Manage your products, inventory, and pricing.</p>
         </div>
-
-        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}><DialogContent><DialogHeader><DialogTitle className="text-red-600">Delete Product</DialogTitle><DialogDescription>Are you sure you want to delete "{deletingProduct?.name}"? This action cannot be undone.</DialogDescription></DialogHeader><div className="flex gap-2 mt-4"><Button variant="destructive" onClick={confirmDelete} className="flex-1" disabled={productDeleteMutation.isPending}>{productDeleteMutation.isPending ? <LoadingSpinner size="sm" /> : "Delete Product"}</Button><Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="flex-1">Cancel</Button></div></DialogContent></Dialog>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Products</CardTitle><Package className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{products.length}</div></CardContent></Card>
-            <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Inventory Value</CardTitle><TrendingDown className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">${stats.totalValue.toFixed(2)}</div><p className="text-xs text-muted-foreground">Cost: ${stats.totalCost.toFixed(2)}</p></CardContent></Card>
-            <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Low Stock</CardTitle><AlertTriangle className="h-4 w-4 text-orange-500" /></CardHeader><CardContent><div className="text-2xl font-bold text-orange-600">{stats.lowStockProducts.length}</div></CardContent></Card>
-            <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Out of Stock</CardTitle><AlertTriangle className="h-4 w-4 text-red-500" /></CardHeader><CardContent><div className="text-2xl font-bold text-red-600">{stats.outOfStockProducts.length}</div></CardContent></Card>
-        </div>
-
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search products..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10"/>
-        </div>
-
-        <Card>
-          <CardHeader><CardTitle>Product Inventory</CardTitle></CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader><TableRow><TableHead>Product</TableHead><TableHead>Category</TableHead><TableHead>Price</TableHead><TableHead>Cost</TableHead><TableHead>Stock</TableHead><TableHead>Status</TableHead><TableHead>Value</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
-              <TableBody>
-                {filteredProducts.map((p) => (<TableRow key={p.id}>
-                    <TableCell><div><div className="font-medium">{p.name}</div>{p.description && <div className="text-sm text-muted-foreground">{p.description}</div>}</div></TableCell>
-                    <TableCell><Badge variant="secondary">{p.category}</Badge></TableCell>
-                    <TableCell>${p.price.toFixed(2)}</TableCell>
-                    <TableCell><div>${p.cost.toFixed(2)}<div className="text-xs text-muted-foreground">{p.price > 0 ? (((p.price - p.cost) / p.price) * 100).toFixed(1) : 0}% margin</div></div></TableCell>
-                    <TableCell><span className={cn("font-medium", p.stock === 0 ? "text-red-600" : p.stock < 10 ? "text-orange-600" : "text-green-600")}>{p.stock}</span></TableCell>
-                    <TableCell><Badge variant="outline" className={getStockStatus(p.stock).color}>{getStockStatus(p.stock).label}</Badge></TableCell>
-                    <TableCell>${(p.price * p.stock).toFixed(2)}</TableCell>
-                    <TableCell><div className="flex items-center gap-2"><Button variant="ghost" size="sm" onClick={() => { setEditingProduct(p); setIsAddDialogOpen(true);}}><Edit className="h-4 w-4" /></Button><Button variant="ghost" size="sm" onClick={() => handleDeleteClick(p)} className="hover:bg-red-50 text-red-600 hover:text-red-700"><Trash2 className="h-4 w-4" /></Button></div></TableCell>
-                  </TableRow>))}
-              </TableBody>
-            </Table>
-            {filteredProducts.length === 0 && (<div className="text-center py-8"><Package className="h-12 w-12 mx-auto mb-3 text-muted-foreground" /><p className="text-muted-foreground">{searchTerm ? "No products found matching your search." : "No products in inventory."}</p></div>)}
-          </CardContent>
-        </Card>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button><Plus className="mr-2 h-4 w-4" />Add Product</Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="name">Product Name</Label>
+                    <Input id="name" {...register("name")} />
+                    {errors.name && <p className="text-sm text-red-500 mt-1">{errors.name.message}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="category">Category</Label>
+                    <Input id="category" {...register("category")} />
+                    {errors.category && <p className="text-sm text-red-500 mt-1">{errors.category.message}</p>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="price">Price</Label>
+                    <Input id="price" type="number" step="0.01" {...register("price")} />
+                    {errors.price && <p className="text-sm text-red-500 mt-1">{errors.price.message}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="cost">Cost</Label>
+                    <Input id="cost" type="number" step="0.01" {...register("cost")} />
+                    {errors.cost && <p className="text-sm text-red-500 mt-1">{errors.cost.message}</p>}
+                  </div>
+                </div>
+                 <div>
+                    <Label htmlFor="stock">Stock</Label>
+                    <Input id="stock" type="number" {...register("stock")} />
+                    {errors.stock && <p className="text-sm text-red-500 mt-1">{errors.stock.message}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="description">Description (Optional)</Label>
+                  <Input id="description" {...register("description")} />
+                </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={productMutation.isPending}>
+                  {productMutation.isPending ? <LoadingSpinner size="sm"/> : 'Save Product'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
-    </POSLayout>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Products</CardTitle><Package className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{stats.totalProducts}</div></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Stock Units</CardTitle><Archive className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{stats.totalStock}</div></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Low Stock Alerts</CardTitle><Package className="h-4 w-4 text-red-500" /></CardHeader><CardContent><div className="text-2xl font-bold text-red-500">{stats.lowStockCount}</div></CardContent></Card>
+      </div>
+
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input placeholder="Search products by name or category..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10"/>
+      </div>
+
+      <Card>
+        <CardHeader><CardTitle>Product List</CardTitle></CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Category</TableHead><TableHead>Price</TableHead><TableHead>Cost</TableHead><TableHead>Stock</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {filteredProducts.length > 0 ? (
+                filteredProducts.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium">{p.name}</TableCell>
+                    <TableCell><Badge variant="outline">{p.category}</Badge></TableCell>
+                    <TableCell>{formatCurrency(p.price)}</TableCell>
+                    <TableCell>{formatCurrency(p.cost)}</TableCell>
+                    <TableCell>
+                      <Badge variant={p.stock < 10 ? 'destructive' : 'default'}>{p.stock} units</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => { setEditingProduct(p); setIsDialogOpen(true); }}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                             <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-600">
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure you want to delete this product?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently remove the product from your inventory and sales records.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteMutation.mutate(p.id)}
+                                disabled={deleteMutation.isPending}
+                                className="bg-red-500 hover:bg-red-600"
+                              >
+                                {deleteMutation.isPending ? <LoadingSpinner size="sm" /> : 'Delete'}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    {searchTerm ? "No products found." : "No products yet. Add your first one!"}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
   );
-}
+} 

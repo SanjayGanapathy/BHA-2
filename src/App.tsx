@@ -3,13 +3,13 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LoadingScreen } from "@/components/ui/loading";
 import { config } from "@/lib/config";
-import { useAuth } from "./auth/AuthProvider";
+import { useAuth } from "@/auth/useAuth";
 import { Toaster } from "@/components/ui/toaster";
+import { DashboardLayout } from '@/components/DashboardLayout';
 
 // Lazy load components for better performance
-const Dashboard = React.lazy(() => import("@/pages/Dashboard"));
+const Dashboard = /*#__PURE__*/ React.lazy(() => import("@/pages/Dashboard"));
 const Login = React.lazy(() => import("@/pages/Login"));
-const Landing = React.lazy(() => import("@/pages/Landing"));
 const POS = React.lazy(() => import("@/pages/POS"));
 const Products = React.lazy(() => import("@/pages/Products"));
 const Analytics = React.lazy(() => import("@/pages/Analytics"));
@@ -19,18 +19,33 @@ const NotFound = React.lazy(() => import("@/pages/NotFound"));
 
 // Protected Route wrapper now uses the useAuth hook
 function ProtectedRoute() {
-  const { user, isLoading } = useAuth();
+  const { user, session, isLoading } = useAuth();
 
   if (isLoading) {
-    return <LoadingScreen message="Checking session..." />;
+    return <LoadingScreen message="Verifying session..." />;
   }
 
-  if (!user) {
+  if (!session) {
     return <Navigate to="/login" replace />;
   }
-  
-  // Renders the child route element
-  return <Outlet />;
+
+  // If we have a session but are waiting for the user profile,
+  // we can show the main layout with a loading state inside.
+  // This makes the app feel faster.
+  if (!user) {
+    return (
+      <DashboardLayout>
+        <LoadingScreen message="Loading user data..." />
+      </DashboardLayout>
+    );
+  }
+
+  // Renders the child route element within the main layout
+  return (
+    <DashboardLayout>
+      <Outlet />
+    </DashboardLayout>
+  );
 }
 
 function App() {
@@ -46,7 +61,7 @@ function App() {
             {/* Public Route */}
             <Route path="/login" element={<Login />} />
 
-            {/* Protected Routes are now nested */}
+            {/* Protected Routes are now nested inside the layout */}
             <Route element={<ProtectedRoute />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/pos" element={<POS />} />
