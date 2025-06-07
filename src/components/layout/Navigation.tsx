@@ -6,8 +6,6 @@ import { LayoutDashboard, ShoppingCart, Package, BarChart3, Brain, Users, Target
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/auth/useAuth";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { CircleUser, Menu, Package2, Search } from "lucide-react";
 
 const allNavigationItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", roles: ["admin", "manager", "cashier"] },
@@ -38,13 +36,14 @@ export function Navigation({ className }: { className?: string }) {
   return (
     <nav className={cn("flex flex-col h-full bg-card border-r", className)}>
       <div className="p-6 border-b">
-        <div className="flex items-center gap-2">
+        {/* This Link now correctly points to the main app dashboard */}
+        <Link to="/dashboard" className="flex items-center gap-2">
             <Target className="h-8 w-8 text-blue-600" />
             <div>
                 <h1 className="text-xl font-bold text-blue-900">Bull Horn Analytics</h1>
                 <p className="text-sm text-blue-600">Smart Business Intelligence</p>
             </div>
-        </div>
+        </Link>
       </div>
       <div className="flex-1 p-4 space-y-2">
         {accessibleNavItems.map((item) => (

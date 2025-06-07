@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DollarSign, Package, Users, BarChart3, Brain, AlertCircle, Calendar as CalendarIcon } from "lucide-react";
@@ -14,10 +14,29 @@ import { Sale } from "@/types";
 import { DateRange } from "react-day-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format, subDays } from "date-fns";
+import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 
-// Function to fetch and compute quick stats
+// Fetches data for the Z-Report by calling our secure and efficient database function.
+async function getZReportData(dateRange: DateRange): Promise<Sale[]> {
+  const from = dateRange.from ? startOfDay(dateRange.from) : startOfDay(subDays(new Date(), 1));
+  const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(new Date());
+
+  const { data, error } = await supabase.rpc('get_z_report_data', {
+    from_date: from.toISOString(),
+    to_date: to.toISOString(),
+  });
+
+  if (error) {
+    console.error("Error fetching Z-report data from RPC:", error);
+    throw new Error(error.message);
+  }
+  
+  return (data as Sale[]) || [];
+}
+
+
+// Function to fetch and compute quick stats. This remains the same.
 async function getQuickStats() {
   const today = new Date();
   const twentyFourHoursAgo = new Date(today.getTime() - 24 * 60 * 60 * 1000).toISOString();
@@ -31,16 +50,20 @@ async function getQuickStats() {
   if (salesError) throw new Error(salesError.message);
 
   // Fetch new users from the last 24 hours
+  // Note: This requires the 'users' table to be readable by authenticated users.
+  // This will fail if RLS is too restrictive on the users table.
   const { count: newUsers, error: usersError } = await supabase
     .from('users')
     .select('*', { count: 'exact', head: true })
     .gte('created_at', twentyFourHoursAgo);
 
-  if (usersError) throw new Error(usersError.message);
+  if (usersError) {
+    console.warn("Could not fetch new users count. Check RLS policies on the 'users' table.", usersError.message)
+  };
 
   // Calculate stats
-  const revenue = sales.reduce((acc, sale) => acc + sale.total, 0);
-  const productsSold = sales.reduce((acc, sale) => acc + sale.sale_items.reduce((itemAcc, item) => itemAcc + item.quantity, 0), 0);
+  const revenue = sales.reduce((acc, sale) => acc + (sale.total || 0), 0);
+  const productsSold = sales.reduce((acc, sale) => acc + (sale.sale_items?.reduce((itemAcc, item) => itemAcc + item.quantity, 0) || 0), 0);
   const avgSale = sales.length > 0 ? revenue / sales.length : 0;
 
   return [
@@ -51,35 +74,6 @@ async function getQuickStats() {
   ];
 }
 
-async function getZReportData(dateRange: DateRange): Promise<Sale[]> {
-  const from = dateRange.from ? new Date(dateRange.from) : subDays(new Date(), 1);
-  from.setHours(0, 0, 0, 0);
-
-  const to = dateRange.to ? new Date(dateRange.to) : new Date();
-  to.setHours(23, 59, 59, 999);
-
-  const { data, error } = await supabase
-    .from('sales')
-    .select(`
-      *,
-      sale_items (
-        quantity,
-        products (
-          *
-        )
-      )
-    `)
-    .gte('created_at', from.toISOString())
-    .lte('created_at', to.toISOString())
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error("Error fetching Z-report data:", error);
-    throw new Error(error.message);
-  }
-  
-  return data || [];
-}
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -87,9 +81,9 @@ export default function Dashboard() {
   const [reportData, setReportData] = useState<Sale[] | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
 
-  const [date, setDate] = useState<DateRange>({
-    from: subDays(new Date(), 1),
-    to: new Date(),
+  const [date, setDate] = useState<DateRange | undefined>({
+    from: startOfDay(subDays(new Date(), 1)),
+    to: endOfDay(new Date()),
   });
 
   const handlePrint = useReactToPrint({
@@ -103,16 +97,15 @@ export default function Dashboard() {
 
   const handleExportClick = async () => {
     try {
-      if (!date.from || !date.to) {
+      if (!date?.from) {
         console.error("Date range is not selected.");
-        // You might want to show a toast notification here
         return;
       }
       const data = await getZReportData(date);
       setReportData(data);
     } catch (error) {
       console.error("Failed to generate Z-report:", error);
-      // You might want to show a toast notification to the user here
+      // You can add a user-facing toast notification here for errors
     }
   };
 
@@ -124,7 +117,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
@@ -138,7 +131,7 @@ export default function Dashboard() {
                 id="date"
                 variant={"outline"}
                 className={cn(
-                  "w-[300px] justify-start text-left font-normal",
+                  "w-[260px] justify-start text-left font-normal",
                   !date && "text-muted-foreground"
                 )}
               >
@@ -162,7 +155,7 @@ export default function Dashboard() {
                 mode="range"
                 defaultMonth={date?.from}
                 selected={date}
-                onSelect={(newDate) => setDate(newDate || date)}
+                onSelect={setDate}
                 numberOfMonths={2}
               />
             </PopoverContent>
@@ -172,22 +165,28 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <DashboardQuickStats />
+      <Suspense fallback={<QuickStatsSkeleton />}>
+        <DashboardQuickStats />
+      </Suspense>
 
       <div className="mt-8">
         <h2 className="text-2xl font-bold tracking-tight mb-4 flex items-center gap-2">
           <Brain className="h-6 w-6 text-primary" />
           AI-Powered Insights
         </h2>
-        <DashboardAIInsights />
+        <Suspense fallback={<InsightsSkeleton />}>
+            <DashboardAIInsights />
+        </Suspense>
       </div>
 
       <div className={isPrinting ? "print-mount" : "hidden"}>
-          <ZReport ref={reportRef} reportData={reportData || []} reportDateRange={date} />
+          <ZReport ref={reportRef} reportData={reportData || []} reportDateRange={date || {}} />
       </div>
     </div>
   );
 }
+
+// --- Child Components for Suspense & Data Fetching ---
 
 function DashboardQuickStats() {
   const { data: stats, isLoading, isError } = useQuery({
@@ -197,21 +196,7 @@ function DashboardQuickStats() {
   });
 
   if (isLoading) {
-    return (
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {[...Array(4)].map((_, i) => (
-          <Card key={i}>
-            <CardHeader>
-              <Skeleton className="h-4 w-2/3" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-1/2 mb-2" />
-              <Skeleton className="h-3 w-1/3" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
+    return <QuickStatsSkeleton />;
   }
 
   if (isError) {
@@ -243,18 +228,12 @@ function DashboardAIInsights() {
   const { data: insights, isLoading, isError, error } = useQuery({
     queryKey: ['dashboardInsights'],
     queryFn: getDashboardInsights,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 15, // 15 minutes
     refetchOnWindowFocus: false,
   });
 
   if (isLoading) {
-    return (
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Skeleton className="h-40" />
-        <Skeleton className="h-40" />
-        <Skeleton className="h-40" />
-      </div>
-    );
+    return <InsightsSkeleton />;
   }
 
   if (isError) {
@@ -289,3 +268,28 @@ function DashboardAIInsights() {
     </div>
   );
 }
+
+// --- Skeleton Components ---
+
+const QuickStatsSkeleton = () => (
+  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+    {[...Array(4)].map((_, i) => (
+      <Card key={i}>
+        <CardHeader>
+          <Skeleton className="h-4 w-2/3" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-8 w-1/2 mb-2" />
+        </CardContent>
+      </Card>
+    ))}
+  </div>
+);
+
+const InsightsSkeleton = () => (
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <Skeleton className="h-40 rounded-lg" />
+        <Skeleton className="h-40 rounded-lg" />
+        <Skeleton className="h-40 rounded-lg" />
+    </div>
+);
