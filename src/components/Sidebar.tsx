@@ -6,7 +6,7 @@ import { Button } from './ui/button';
 import { config } from '@/lib/config';
 
 const navItems = [
-  { path: '/', label: 'Dashboard', icon: Home },
+  { path: '/dashboard', label: 'Dashboard', icon: Home },
   { path: '/pos', label: 'POS', icon: ShoppingCart },
   { path: '/products', label: 'Products', icon: Package },
   { path: '/analytics', label: 'Analytics', icon: BarChart2 },

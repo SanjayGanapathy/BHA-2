@@ -49,4 +49,48 @@ begin
 
   return new_sale_id;
 end;
-$$ language plpgsql volatile security definer; 
+$$ language plpgsql volatile security definer;
+
+-- Function to get Z-report data
+CREATE OR REPLACE FUNCTION get_z_report_data(
+    from_date text,
+    to_date text
+)
+RETURNS TABLE(
+    id uuid,
+    created_at timestamptz,
+    total numeric,
+    profit numeric,
+    sale_items jsonb
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        s.id,
+        s.created_at,
+        s.total,
+        s.profit,
+        COALESCE(
+            jsonb_agg(
+                jsonb_build_object(
+                    'quantity', si.quantity,
+                    'products', to_jsonb(p)
+                )
+            ) FILTER (WHERE si.id IS NOT NULL),
+            '[]'::jsonb
+        ) AS sale_items
+    FROM
+        public.sales s
+    LEFT JOIN
+        public.sale_items si ON s.id = si.sale_id
+    LEFT JOIN
+        public.products p ON si.product_id = p.id
+    WHERE
+        s.created_at >= from_date::timestamptz
+        AND s.created_at <= to_date::timestamptz
+    GROUP BY
+        s.id
+    ORDER BY
+        s.created_at DESC;
+END;
+$$ LANGUAGE plpgsql; 
