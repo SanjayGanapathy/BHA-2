@@ -3,7 +3,6 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -16,23 +15,9 @@ export default defineConfig({
     host: true,
     open: false,
   },
-  build: {
-    outDir: 'dist',
-    assetsDir: 'assets',
-    target: "esnext",
-    minify: "terser",
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-      },
-    },
-    sourcemap: false,
-    cssCodeSplit: true,
-  },
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: './src/tests/setup.ts',
+    setupFiles: './src/tests/setup.ts', // This points to our new mock setup
   },
 });
