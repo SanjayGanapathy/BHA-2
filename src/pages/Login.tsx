@@ -1,5 +1,7 @@
+// src/pages/Login.tsx
+
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom"; // Import Link
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,9 +24,8 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Redirect if user is already logged in
     if (user) {
-      navigate("/", { replace: true });
+      navigate("/dashboard", { replace: true }); // Navigate to /dashboard now
     }
   }, [user, navigate]);
 
@@ -35,18 +36,14 @@ export default function Login() {
     
     try {
       await login(email, password);
-      // On successful login, the useEffect above will handle the navigation.
     } catch (err) {
       const error = err as Error;
-      // Provide user-friendly error messages
       if (error.message.includes("Invalid login credentials")) {
         setError("Invalid email or password. Please try again.");
-      } else if (error.message.includes("406")) {
-        setError("Could not fetch user profile. Please contact support.");
       } else {
-        setError("An unexpected error occurred. Please check your connection and try again.");
+        setError("An unexpected error occurred. Please try again.");
       }
-      console.error("Login error:", err); // Keep detailed error for developers
+      console.error("Login error:", err);
     } finally {
       setIsSubmitting(false);
     }
@@ -98,6 +95,13 @@ export default function Login() {
               {isSubmitting ? <LoadingSpinner size="sm" /> : "Sign In"}
             </Button>
           </form>
+          {/* Add link to Sign Up page */}
+          <div className="mt-4 text-center text-sm">
+            Don't have an account?{" "}
+            <Link to="/signup" className="underline hover:text-primary">
+              Sign Up
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>

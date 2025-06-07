@@ -1,3 +1,5 @@
+// src/components/layout/Navigation.tsx
+
 import React, { useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { LayoutDashboard, ShoppingCart, Package, BarChart3, Brain, Users, Target, LogOut } from "lucide-react";
@@ -8,7 +10,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { CircleUser, Menu, Package2, Search } from "lucide-react";
 
 const allNavigationItems = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard", roles: ["admin", "manager", "cashier"] },
+  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", roles: ["admin", "manager", "cashier"] },
   { to: "/pos", icon: ShoppingCart, label: "Sales Terminal", roles: ["admin", "manager", "cashier"] },
   { to: "/products", icon: Package, label: "Products", roles: ["admin", "manager"] },
   { to: "/analytics", icon: BarChart3, label: "Analytics", roles: ["admin", "manager"] },

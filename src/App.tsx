@@ -1,3 +1,5 @@
+// src/App.tsx
+
 import React, { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -7,9 +9,11 @@ import { useAuth } from "@/auth/useAuth";
 import { Toaster } from "@/components/ui/toaster";
 import { DashboardLayout } from '@/components/DashboardLayout';
 
-// Lazy load components for better performance
-const Dashboard = /*#__PURE__*/ React.lazy(() => import("@/pages/Dashboard"));
+// --- Lazy load ALL pages for better performance ---
+const LandingPage = React.lazy(() => import("@/pages/Landing"));
+const SignUp = React.lazy(() => import("@/pages/SignUp"));
 const Login = React.lazy(() => import("@/pages/Login"));
+const Dashboard = React.lazy(() => import("@/pages/Dashboard"));
 const POS = React.lazy(() => import("@/pages/POS"));
 const Products = React.lazy(() => import("@/pages/Products"));
 const Analytics = React.lazy(() => import("@/pages/Analytics"));
@@ -17,7 +21,6 @@ const AIInsights = React.lazy(() => import("@/pages/AIInsights"));
 const Users = React.lazy(() => import("@/pages/Users"));
 const NotFound = React.lazy(() => import("@/pages/NotFound"));
 
-// Protected Route wrapper now uses the useAuth hook
 function ProtectedRoute() {
   const { user, session, isLoading } = useAuth();
 
@@ -28,10 +31,7 @@ function ProtectedRoute() {
   if (!session) {
     return <Navigate to="/login" replace />;
   }
-
-  // If we have a session but are waiting for the user profile,
-  // we can show the main layout with a loading state inside.
-  // This makes the app feel faster.
+  
   if (!user) {
     return (
       <DashboardLayout>
@@ -40,7 +40,6 @@ function ProtectedRoute() {
     );
   }
 
-  // Renders the child route element within the main layout
   return (
     <DashboardLayout>
       <Outlet />
@@ -58,12 +57,14 @@ function App() {
       <BrowserRouter>
         <React.Suspense fallback={<LoadingScreen message="Loading page..." />}>
           <Routes>
-            {/* Public Route */}
+            {/* --- Public Routes --- */}
+            <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<SignUp />} />
 
-            {/* Protected Routes are now nested inside the layout */}
+            {/* --- Protected Routes --- */}
             <Route element={<ProtectedRoute />}>
-              <Route path="/" element={<Dashboard />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/pos" element={<POS />} />
               <Route path="/products" element={<Products />} />
               <Route path="/analytics" element={<Analytics />} />

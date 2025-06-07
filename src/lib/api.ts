@@ -1,11 +1,10 @@
 import { Product, Sale, User, CartItem } from "@/types";
 import { supabase } from './supabaseClient'; // Import our Supabase client
 
-// --- Authentication API (Now using Supabase Auth) ---
+// --- Authentication API ---
 
 /**
  * Logs a user in using their email and password.
- * Note: For this to work, you must create a user in the Supabase Auth section.
  */
 export const apiLogin = async (email: string, password: string): Promise<User | null> => {
   console.log("API: Attempting real login with Supabase for user:", email);
@@ -58,8 +57,6 @@ export const getCurrentUser = async (): Promise<User | null> => {
       .eq('id', session.user.id)
       .single();
 
-    // If there's an error fetching the profile (e.g., RLS error, user not in table),
-    // we must throw it so the AuthProvider can catch it and handle logout.
     if (profileError) {
         console.error("Error fetching user profile:", profileError);
         throw profileError;
@@ -67,6 +64,45 @@ export const getCurrentUser = async (): Promise<User | null> => {
 
     return userData;
 };
+
+/**
+ * Creates a new user account from the public sign-up page.
+ * Defaults new users to the 'cashier' role.
+ */
+export const apiSignUp = async (email: string, password: string, name: string): Promise<User> => {
+  // Step 1: Create the user in Supabase Auth
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email,
+    password,
+  });
+
+  if (authError) throw authError;
+  if (!authData.user) throw new Error("Sign up did not return a user.");
+
+  // Step 2: Create the corresponding profile in the public 'users' table.
+  const { data: profileData, error: profileError } = await supabase
+    .from('users')
+    .insert({
+      id: authData.user.id,
+      name: name,
+      username: email.split('@')[0], // Default username from email
+      email: email,
+      role: 'cashier', // Default role for new sign-ups
+      is_active: true,
+    })
+    .select()
+    .single();
+
+  if (profileError) {
+    console.error("Error creating user profile:", profileError);
+    // If profile creation fails, we should ideally delete the auth user
+    // to prevent orphaned accounts. This would require an admin client.
+    throw new Error(`Database error creating user profile: ${profileError.message}`);
+  }
+  
+  return profileData;
+};
+
 
 // --- Products API ---
 
@@ -95,7 +131,7 @@ export const deleteProduct = async (productId: string): Promise<{ id: string }> 
   return { id: productId };
 };
 
-// --- Users API ---
+// --- Users API (for use by authenticated admins) ---
 
 export const fetchUsers = async (): Promise<User[]> => {
   const { data, error } = await supabase.from('users').select('*');
@@ -110,11 +146,8 @@ export const updateUser = async (userData: User): Promise<User> => {
     return data;
 };
 
-// NOTE: A proper addUser function would require elevated permissions (a `service_role` key)
-// to bypass Row Level Security. For a real app, this should be handled in a secure
-// backend environment, not on the client. This version is for demonstration.
+// This function is for admins to add users from within the app.
 export const addUser = async (userData: Omit<User, 'id'> & {password: string}): Promise<User> => {
-    console.warn("Attempting to create user from client-side. This requires special setup in Supabase (e.g., an RPC function).");
     const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
@@ -137,19 +170,17 @@ export const addUser = async (userData: Omit<User, 'id'> & {password: string}): 
         .single();
     
     if (profileError) {
-      console.error("Error creating user profile:", profileError);
-      // We should also delete the user from auth if the profile creation fails
-      // This is complex client-side, another reason to use a serverless function.
       throw new Error(`Database error saving new user: ${profileError.message}`);
     }
     return profileData;
 }
 
 export const deleteUser = async (userId: string): Promise<{ id: string }> => {
-  // Note: This only deletes the user from the 'users' table, not from Supabase Auth.
-  // A secure implementation would use a server-side function with admin privileges.
+  // A secure implementation would use a server-side function with admin privileges
+  // to delete from both 'auth.users' and 'public.users'.
   const { error } = await supabase.from('users').delete().eq('id', userId);
   if (error) throw error;
+  // Here you would also call Supabase admin to delete the auth user.
   return { id: userId };
 };
 
@@ -159,13 +190,11 @@ export const fetchSales = async (dateRange?: { from: string | Date; to: string |
   let query = supabase.from('sales').select('*, sale_items(*, products(*))');
 
   if (dateRange?.from) {
-    // Set time to the beginning of the day
     const fromDate = new Date(dateRange.from);
     fromDate.setHours(0, 0, 0, 0);
     query = query.gte('created_at', fromDate.toISOString());
   }
   if (dateRange?.to) {
-    // Set time to the end of the day
     const toDate = new Date(dateRange.to);
     toDate.setHours(23, 59, 59, 999);
     query = query.lte('created_at', toDate.toISOString());
@@ -195,7 +224,6 @@ export const createSale = async (items: CartItem[]): Promise<Sale> => {
     throw error;
   }
   
-  // The RPC returns the new sale's ID. We need to fetch the full sale data.
   const { data: newSale, error: fetchError } = await supabase
     .from('sales')
     .select('*, sale_items(*, products(*))')
