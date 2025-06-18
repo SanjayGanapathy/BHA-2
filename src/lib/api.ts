@@ -7,24 +7,45 @@ import { supabase } from './supabaseClient'; // Import our Supabase client
  * Logs a user in using their email and password.
  */
 export const apiLogin = async (email: string, password: string): Promise<User | null> => {
-  console.log("API: Attempting real login with Supabase for user:", email);
-  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-    email: email,
-    password: password,
-  });
+  try {
+    console.log("API: Attempting real login with Supabase for user:", email);
+    
+    // Step 1: Sign in with Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: password,
+    });
 
-  if (authError) throw authError;
-  if (!authData.user) throw new Error("Login failed, no user returned.");
-  
-  // After login, fetch the user's profile from our 'users' table
-  const { data: userData, error: userError } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', authData.user.id)
-    .single();
+    if (authError) {
+      console.error("Auth error:", authError);
+      throw new Error(`Authentication failed: ${authError.message}`);
+    }
+    
+    if (!authData.user) {
+      throw new Error("Login failed, no user returned.");
+    }
+    
+    // Step 2: Fetch the user's profile from our 'users' table
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', authData.user.id)
+      .single();
 
-  if (userError) throw userError;
-  return userData;
+    if (userError) {
+      console.error("Profile fetch error:", userError);
+      throw new Error(`Failed to fetch user profile: ${userError.message}`);
+    }
+
+    if (!userData) {
+      throw new Error("User profile not found. Please contact support.");
+    }
+
+    return userData;
+  } catch (error) {
+    console.error("Login error:", error);
+    throw error;
+  }
 };
 
 /**
@@ -40,29 +61,38 @@ export const apiLogout = async () => {
  * Gets the current user's session and profile data. Returns null if not logged in.
  */
 export const getCurrentUser = async (): Promise<User | null> => {
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError) {
-      console.error("Error getting session:", sessionError);
-      throw sessionError;
-    }
+    try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+            console.error("Error getting session:", sessionError);
+            throw new Error(`Failed to get session: ${sessionError.message}`);
+        }
 
-    if (!session) {
-      return null;
-    }
-    
-    const { data: userData, error: profileError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', session.user.id)
-      .single();
+        if (!session) {
+            return null;
+        }
+        
+        const { data: userData, error: profileError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
 
-    if (profileError) {
-        console.error("Error fetching user profile:", profileError);
-        throw profileError;
-    }
+        if (profileError) {
+            console.error("Error fetching user profile:", profileError);
+            throw new Error(`Failed to fetch user profile: ${profileError.message}`);
+        }
 
-    return userData;
+        if (!userData) {
+            throw new Error("User profile not found. Please contact support.");
+        }
+
+        return userData;
+    } catch (error) {
+        console.error("Error in getCurrentUser:", error);
+        throw error;
+    }
 };
 
 /**
@@ -70,37 +100,48 @@ export const getCurrentUser = async (): Promise<User | null> => {
  * Defaults new users to the 'cashier' role.
  */
 export const apiSignUp = async (email: string, password: string, name: string): Promise<User> => {
-  // Step 1: Create the user in Supabase Auth
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email,
-    password,
-  });
+  try {
+    // Step 1: Create the user in Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name: name,
+          username: email.split('@')[0]
+        }
+      }
+    });
 
-  if (authError) throw authError;
-  if (!authData.user) throw new Error("Sign up did not return a user.");
+    if (authError) throw authError;
+    if (!authData.user) throw new Error("Sign up did not return a user.");
 
-  // Step 2: Create the corresponding profile in the public 'users' table.
-  const { data: profileData, error: profileError } = await supabase
-    .from('users')
-    .insert({
-      id: authData.user.id,
-      name: name,
-      username: email.split('@')[0], // Default username from email
-      email: email,
-      role: 'cashier', // Default role for new sign-ups
-      is_active: true,
-    })
-    .select()
-    .single();
+    // Step 2: Create the corresponding profile in the public 'users' table.
+    const { data: profileData, error: profileError } = await supabase
+      .from('users')
+      .insert({
+        id: authData.user.id,
+        name: name,
+        username: email.split('@')[0], // Default username from email
+        email: email,
+        role: 'cashier', // Default role for new sign-ups
+        is_active: true,
+      })
+      .select()
+      .single();
 
-  if (profileError) {
-    console.error("Error creating user profile:", profileError);
-    // If profile creation fails, we should ideally delete the auth user
-    // to prevent orphaned accounts. This would require an admin client.
-    throw new Error(`Database error creating user profile: ${profileError.message}`);
+    if (profileError) {
+      console.error("Error creating user profile:", profileError);
+      // If profile creation fails, we should delete the auth user
+      await supabase.auth.admin.deleteUser(authData.user.id);
+      throw new Error(`Database error creating user profile: ${profileError.message}`);
+    }
+    
+    return profileData;
+  } catch (error) {
+    console.error("Signup error:", error);
+    throw error;
   }
-  
-  return profileData;
 };
 
 

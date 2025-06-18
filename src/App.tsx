@@ -1,50 +1,46 @@
 // src/App.tsx
 
 import React, { useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LoadingScreen } from "@/components/ui/loading";
 import { config } from "@/lib/config";
 import { useAuth } from "@/auth/useAuth";
 import { Toaster } from "@/components/ui/toaster";
 import { DashboardLayout } from '@/components/DashboardLayout';
+import { hasPermission } from "@/lib/permissions";
+import Landing from "@/pages/Landing";
+import Login from "@/pages/Login";
+import Dashboard from "@/pages/Dashboard";
+import POS from "@/pages/POS";
+import Products from "@/pages/Products";
+import Analytics from "@/pages/Analytics";
+import AIInsights from "@/pages/AIInsights";
+import Users from "@/pages/Users";
+import NotFound from "@/pages/NotFound";
 
-// --- Lazy load ALL pages for better performance ---
-const LandingPage = React.lazy(() => import("@/pages/Landing"));
-const SignUp = React.lazy(() => import("@/pages/SignUp"));
-const Login = React.lazy(() => import("@/pages/Login"));
-const Dashboard = React.lazy(() => import("@/pages/Dashboard"));
-const POS = React.lazy(() => import("@/pages/POS"));
-const Products = React.lazy(() => import("@/pages/Products"));
-const Analytics = React.lazy(() => import("@/pages/Analytics"));
-const AIInsights = React.lazy(() => import("@/pages/AIInsights"));
-const Users = React.lazy(() => import("@/pages/Users"));
-const NotFound = React.lazy(() => import("@/pages/NotFound"));
-
-function ProtectedRoute() {
-  const { user, session, isLoading } = useAuth();
+function ProtectedRoute({ 
+  children, 
+  requiredPermission 
+}: { 
+  children: React.ReactNode;
+  requiredPermission?: string;
+}) {
+  const { user, isLoading } = useAuth();
 
   if (isLoading) {
-    return <LoadingScreen message="Verifying session..." />;
+    return <div>Loading...</div>;
   }
 
-  if (!session) {
-    return <Navigate to="/login" replace />;
-  }
-  
   if (!user) {
-    return (
-      <DashboardLayout>
-        <LoadingScreen message="Loading user data..." />
-      </DashboardLayout>
-    );
+    return <Navigate to="/login" />;
   }
 
-  return (
-    <DashboardLayout>
-      <Outlet />
-    </DashboardLayout>
-  );
+  if (requiredPermission && !hasPermission(user, requiredPermission)) {
+    return <Navigate to="/dashboard" />;
+  }
+
+  return <DashboardLayout>{children}</DashboardLayout>;
 }
 
 function App() {
@@ -54,30 +50,74 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <BrowserRouter>
+      <Router>
         <React.Suspense fallback={<LoadingScreen message="Loading page..." />}>
           <Routes>
             {/* --- Public Routes --- */}
-            <Route path="/" element={<LandingPage />} />
+            <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<SignUp />} />
-
+            
             {/* --- Protected Routes --- */}
-            <Route element={<ProtectedRoute />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/pos" element={<POS />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/ai-insights" element={<AIInsights />} />
-              <Route path="/users" element={<Users />} />
-            </Route>
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute requiredPermission="view_dashboard">
+                  <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/pos" 
+              element={
+                <ProtectedRoute requiredPermission="create_sale">
+                  <POS />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/products" 
+              element={
+                <ProtectedRoute requiredPermission="manage_products">
+                  <Products />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/analytics" 
+              element={
+                <ProtectedRoute requiredPermission="view_analytics">
+                  <Analytics />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/ai-insights" 
+              element={
+                <ProtectedRoute requiredPermission="view_ai_insights">
+                  <AIInsights />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/users" 
+              element={
+                <ProtectedRoute requiredPermission="view_users">
+                  <Users />
+                </ProtectedRoute>
+              } 
+            />
 
             {/* Catch-all route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </React.Suspense>
         <Toaster />
-      </BrowserRouter>
+      </Router>
     </ErrorBoundary>
   );
 }

@@ -6,14 +6,45 @@ import { LayoutDashboard, ShoppingCart, Package, BarChart3, Brain, Users, Target
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/auth/useAuth";
+import { hasPermission } from "@/lib/permissions";
 
-const allNavigationItems = [
-  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", roles: ["admin", "manager", "cashier"] },
-  { to: "/pos", icon: ShoppingCart, label: "Sales Terminal", roles: ["admin", "manager", "cashier"] },
-  { to: "/products", icon: Package, label: "Products", roles: ["admin", "manager"] },
-  { to: "/analytics", icon: BarChart3, label: "Analytics", roles: ["admin", "manager"] },
-  { to: "/ai-insights", icon: Brain, label: "Bull's Eye", roles: ["admin", "manager"] },
-  { to: "/users", icon: Users, label: "Users", roles: ["admin"] },
+const navigationItems = [
+  { 
+    to: "/dashboard", 
+    icon: LayoutDashboard, 
+    label: "Dashboard",
+    permission: "view_dashboard" as const
+  },
+  { 
+    to: "/pos", 
+    icon: ShoppingCart, 
+    label: "Sales Terminal",
+    permission: "create_sale" as const
+  },
+  { 
+    to: "/products", 
+    icon: Package, 
+    label: "Products",
+    permission: "manage_products" as const
+  },
+  { 
+    to: "/analytics", 
+    icon: BarChart3, 
+    label: "Analytics",
+    permission: "view_analytics" as const
+  },
+  { 
+    to: "/ai-insights", 
+    icon: Brain, 
+    label: "Bull's Eye",
+    permission: "view_ai_insights" as const
+  },
+  { 
+    to: "/users", 
+    icon: Users, 
+    label: "Users",
+    permission: "view_users" as const
+  },
 ];
 
 export function Navigation({ className }: { className?: string }) {
@@ -28,7 +59,7 @@ export function Navigation({ className }: { className?: string }) {
   
   const accessibleNavItems = useMemo(() => {
     if (!user) return [];
-    return allNavigationItems.filter((item) => item.roles.includes(user.role));
+    return navigationItems.filter((item) => hasPermission(user, item.permission));
   }, [user]);
 
   if (!user) return null;
@@ -48,7 +79,13 @@ export function Navigation({ className }: { className?: string }) {
       <div className="flex-1 p-4 space-y-2">
         {accessibleNavItems.map((item) => (
           <Link key={item.to} to={item.to}>
-            <Button variant={location.pathname === item.to ? "default" : "ghost"} className={cn("w-full justify-start gap-3", location.pathname === item.to && "bg-blue-600 text-white hover:bg-blue-700")}>
+            <Button 
+              variant={location.pathname === item.to ? "default" : "ghost"} 
+              className={cn(
+                "w-full justify-start gap-3", 
+                location.pathname === item.to && "bg-blue-600 text-white hover:bg-blue-700"
+              )}
+            >
               <item.icon className="h-5 w-5" />
               {item.label}
             </Button>

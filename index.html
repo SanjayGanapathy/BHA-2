@@ -27,12 +27,11 @@
       content="
         default-src 'self'; 
         script-src 'self' 'unsafe-inline' 'unsafe-eval'; 
-        style-src 'self' 'unsafe-inline'; 
-        img-src 'self' data: https://*.supabase.co https://*.supabase.io;
-        connect-src 'self' https://*.supabase.co https://*.supabase.io https://generativelanguage.googleapis.com;
-        font-src 'self' data:;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; 
+        img-src 'self' data: https://*.supabase.co https://*.supabase.io https://*.googleapis.com;
+        connect-src 'self' https://*.supabase.co https://*.supabase.io https://generativelanguage.googleapis.com wss://*.supabase.co;
+        font-src 'self' data: https://fonts.gstatic.com;
         object-src 'none'; 
-        frame-ancestors 'none';
         form-action 'self';
         base-uri 'self';
     "
@@ -61,12 +60,12 @@
       property="twitter:description"
       content="AI-powered business intelligence platform with advanced POS capabilities."
     />
-    <meta property="twitter:image" content="/og-image.png" />
+    <meta property="twitter:image" content="/placeholder.svg" />
 
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/placeholder.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" href="/placeholder.svg" />
     <link rel="manifest" href="/site.webmanifest" />
 
     <meta name="theme-color" content="#2563eb" />

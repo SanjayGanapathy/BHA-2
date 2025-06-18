@@ -11,57 +11,80 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
 
-  // This effect hook handles listening for auth changes (login/logout)
+  // Initialize auth state
   useEffect(() => {
+    console.log("AuthProvider: Starting initialization...");
+    
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("AuthProvider: Got initial session:", session ? "Session exists" : "No session");
+      setSession(session);
+      setInitialLoading(false);
+    }).catch(error => {
+      console.error("AuthProvider: Error getting session:", error);
+      setInitialLoading(false);
+    });
+
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (_event, session) => {
+        console.log("AuthProvider: Auth state changed:", _event);
         setSession(session);
-        // If the user logs out, ensure their profile data is cleared.
+        
         if (!session) {
+          console.log("AuthProvider: No session, clearing user");
           setUser(null);
+          setInitialLoading(false);
+          return;
         }
-        // This is the critical part: we stop the initial loading screen
-        // as soon as we know whether a session exists or not.
-        setInitialLoading(false);
+
+        try {
+          console.log("AuthProvider: Fetching user profile...");
+          const userProfile = await api.getCurrentUser();
+          console.log("AuthProvider: Got user profile:", userProfile ? "Profile exists" : "No profile");
+          setUser(userProfile);
+        } catch (error) {
+          console.error("AuthProvider: Failed to fetch user profile:", error);
+          setUser(null);
+        } finally {
+          setInitialLoading(false);
+        }
       }
     );
 
     return () => {
+      console.log("AuthProvider: Cleaning up...");
       subscription.unsubscribe();
     };
   }, []);
 
-  // This second, separate effect hook is responsible for fetching the detailed
-  // user profile from the database *after* we know a session exists.
-  useEffect(() => {
-    // We only run this if a session exists and we don't already have the user profile.
-    if (session && !user) {
-      api.getCurrentUser()
-        .then((userProfile) => {
-          setUser(userProfile);
-        })
-        .catch(async (error) => {
-          console.error("Failed to fetch user profile for a valid session. Logging out.", error);
-          // If the profile fetch fails, the session is corrupt/invalid. Force a logout.
-          await api.apiLogout();
-          setSession(null);
-          setUser(null);
-        });
-    }
-  }, [session, user]);
-
   const login = async (email: string, password: string) => {
-    await api.apiLogin(email, password);
+    console.log("AuthProvider: Attempting login for:", email);
+    try {
+      const userProfile = await api.apiLogin(email, password);
+      console.log("AuthProvider: Login successful");
+      setUser(userProfile);
+    } catch (error) {
+      console.error("AuthProvider: Login error:", error);
+      throw error;
+    }
   };
 
   const logout = async () => {
-    await api.apiLogout();
+    console.log("AuthProvider: Attempting logout");
+    try {
+      await api.apiLogout();
+      setUser(null);
+      setSession(null);
+      console.log("AuthProvider: Logout successful");
+    } catch (error) {
+      console.error("AuthProvider: Logout error:", error);
+      throw error;
+    }
   };
   
   const value = { user, session, isLoading: initialLoading, login, logout };
 
-  // The app's children are only blocked by the `initialLoading` state.
-  // The `ProtectedRoute` will handle the secondary loading state for the user profile.
   return (
     <AuthContext.Provider value={value}>
       {initialLoading ? <LoadingScreen message="Initializing..." /> : children}
